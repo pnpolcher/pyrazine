@@ -1,0 +1,14 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+aws-xray-sdk = {extras = ["models"], version = "*"}
+pylint = "*"
+
+[dev-packages]
+nose2 = "*"
+
+[requires]
+python_version = "3.8"

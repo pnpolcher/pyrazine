@@ -1,0 +1,18 @@
+{
+  "jwt": {
+    "claims": {
+      "auth_time": 1608560298,
+      "client_id": "5htisl6hrhisk6gdin4ua505pp",
+      "event_id": "dfd736ab-cc63-4b63-b7ab-441fb9a96151",
+      "exp": 1608677394,
+      "iat": 1608673794,
+      "iss": "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_D4KLyfcX7",
+      "jti": "4258d31d-a291-4333-94ca-255e20fc3d0f",
+      "scope": "aws.cognito.signin.user.admin",
+      "sub": "3a73340c-1826-4d33-b2e4-bd8c3437b5fe",
+      "token_use": "access",
+      "username": "3a73340c-1826-4d33-b2e4-bd8c3437b5fe"
+    },
+    "scopes": null
+  }
+}

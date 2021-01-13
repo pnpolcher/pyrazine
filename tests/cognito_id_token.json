@@ -1,0 +1,17 @@
+{
+  "jwt": {
+    "claims": {
+      "aud": "5htisl6hrhisk6gdin4ua505pp",
+      "auth_time": 1608560298,
+      "cognito:username": "3a73340c-1826-4d33-b2e4-bd8c3437b5fe",
+      "email": "info@pablopolcher.dev",
+      "event_id": "dfd736ab-cc63-4b63-b7ab-441fb9a96151",
+      "exp": 1608677394,
+      "iat": 1608673794,
+      "iss": "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_D4KLyfcX7",
+      "sub": "3a73340c-1826-4d33-b2e4-bd8c3437b5fe",
+      "token_use": "id"
+    },
+    "scopes": null
+  }
+}
