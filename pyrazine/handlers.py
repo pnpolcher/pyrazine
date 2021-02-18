@@ -62,7 +62,7 @@ class LambdaHandler(object):
 
     def _handle_event(self, event: HttpEvent, path: str) -> Dict[str, object]:
 
-        method = event.get_http_method().upper()
+        method = event.http_ctx_method().upper()
         logger.debug(f'Processing {method} route for path {path}')
 
         if method == 'OPTIONS':
@@ -213,8 +213,8 @@ class LambdaHandler(object):
         """
 
         http_event = HttpEvent(event)
-        method = http_event.get_http_method()
-        path = http_event.get_path()
+        method = http_event.http_ctx_method()
+        path = http_event.path()
 
         if method is None or path is None:
             method_present = 'not' if method is None else ''

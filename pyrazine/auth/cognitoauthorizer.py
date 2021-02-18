@@ -11,37 +11,23 @@ from jose.utils import base64url_decode
 from pyrazine.auth.base import (
     BaseAuthorizer,
     BaseAuthStorage,
-    BaseUserProfile
+    BaseUserProfile,
+)
+from pyrazine.exceptions import (
+    InvalidTokenError,
+    JwkNotFoundError,
+    JwtVerificationFailedError,
+    NotAuthorizedError,
 )
 from pyrazine.handlers import HandlerCallable
 from pyrazine.jwt import JwtToken
 from pyrazine.response import HttpResponse
 
 
-class JwkNotFoundError(Exception):
-    pass
-
-
-class JwtVerificationFailedError(Exception):
-
-    INVALID_SIGNATURE = 1
-    TOKEN_EXPIRED = 2
-    INVALID_AUDIENCE = 3
-
-    def __init__(self, error_code: int, message: str):
-        super().__init__(message)
-        self._error_code = error_code
-
-    @property
-    def error_code(self) -> int:
-        return self._error_code
-
-
-class NotAuthorizedError(Exception):
-    pass
-
-
 class CognitoAuthorizer(BaseAuthorizer):
+    """
+    Implements a simple authorizer based on Amazon Cognito.
+    """
 
     def __init__(self,
                  user_pool_id: str,
@@ -65,7 +51,11 @@ class CognitoAuthorizer(BaseAuthorizer):
         self._cognito_keys = json.loads(response.decode('utf-8'))['keys']
 
     def _verify_jwt_token(self, token: str):
+        # Based on the code in:
         # https://github.com/awslabs/aws-support-tools/blob/master/Cognito/decode-verify-jwt/decode-verify-jwt.py
+
+        if token is None:
+            raise InvalidTokenError('')
 
         headers = jwt.get_unverified_headers(token)
         kid = headers['kid']
@@ -137,7 +127,7 @@ class CognitoAuthorizer(BaseAuthorizer):
         def wrapper(token: JwtToken, body: Dict[str, object]) -> HttpResponse:
 
             # TODO: Add raw token to JwtToken to be consumed here.
-            self._verify_jwt_token(token.raw)
+            self._verify_jwt_token(token.raw_token)
             profile = self._verify_roles(user_id, roles, fetch_full_profile)
 
             # TODO: Pass the profile to the handler in a context object.

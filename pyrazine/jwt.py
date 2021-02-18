@@ -4,6 +4,8 @@ from typing import Dict, Union
 
 class JwtToken(object):
 
+    _raw_token: str
+
     def __init__(self, token_object: Dict[str, object] = None, token_string: str = None):
         """
         Takes either a token object (a dictionary of objects indexed by strings), or a token
@@ -73,6 +75,24 @@ class JwtToken(object):
         """
         return str(self._token_contents['jti']) \
             if 'jti' in self._token_contents else None
+
+    @property
+    def raw_token(self) -> str:
+        """
+        Raw token, as received in the HTTP authorization header.
+
+        :return:
+        """
+        return self._raw_token
+
+    @raw_token.setter
+    def raw_token(self, value: str):
+        """
+        Set the value of the raw token, as received in the HTTP authorization header.
+
+        :param value: The contents of the raw token.
+        """
+        self._raw_token = value
 
     @property
     def sub(self) -> str:
