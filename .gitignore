@@ -150,5 +150,6 @@ ENV/
 # Rope project settings
 .ropeproject
 
-# Directory with zipped layer files.
+# Directories with zipped and unzipped layer files.
+.layer_data
 .layers
