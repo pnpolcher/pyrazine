@@ -153,3 +153,7 @@ ENV/
 # Directories with zipped and unzipped layer files.
 .layer_data
 .layers
+
+# Exclude output files.
+output.json
+

@@ -62,7 +62,7 @@ class LambdaHandler(object):
 
     def _handle_event(self, event: HttpEvent, path: str) -> Dict[str, object]:
 
-        method = event.http_ctx_method().upper()
+        method = event.http_ctx_method.upper()
         logger.debug(f'Processing {method} route for path {path}')
 
         if method == 'OPTIONS':
@@ -106,6 +106,7 @@ class LambdaHandler(object):
 
         @functools.wraps(handler)
         def wrapper(token: JwtToken, body: Dict[str, object]) -> HttpResponse:
+            logger.debug("Tracing handler executed")
             with self._tracer.in_subsegment(name=f"## {handler_name}") as subsegment:
                 global is_cold_start
 
@@ -148,6 +149,7 @@ class LambdaHandler(object):
 
         # Wrap handler with tracer, if tracing is enabled.
         if trace or (trace is None and self._trace):
+            logger.debug(f"Tracer enabled for {method} {path}")
             handler = self._tracer_wrap_handler(
                 handler,
                 persist_response=persist_response)
@@ -213,8 +215,8 @@ class LambdaHandler(object):
         """
 
         http_event = HttpEvent(event)
-        method = http_event.http_ctx_method()
-        path = http_event.path()
+        method = http_event.http_ctx_method
+        path = http_event.path
 
         if method is None or path is None:
             method_present = 'not' if method is None else ''

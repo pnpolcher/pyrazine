@@ -14,7 +14,7 @@ function build_layer {
       --build-arg python_version="$1" \
       --build-arg runtime="python${python_version}"
 
-  docker run pnpolcher-pyrazine-layer:"$1" tar cf - python | tar -xf - -C $temp_dir
+  docker run --rm pnpolcher-pyrazine-layer:"$1" tar cf - python | tar -xf - -C $temp_dir
 
   (cd "$temp_dir" && zip -q -r "$destination" ./)
 

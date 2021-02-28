@@ -14,8 +14,7 @@ class Tracer(object):
                  recorder: aws_xray_sdk.core.xray_recorder = None,
                  service_name: str = 'unknown_service'):
 
-        self._recorder = recorder if recorder is not None \
-            else aws_xray_sdk.core.xray_recorder
+        self._recorder = recorder or aws_xray_sdk.core.xray_recorder
         self._service_name = service_name
 
     @property

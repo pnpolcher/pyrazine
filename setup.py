@@ -24,7 +24,7 @@ setup(
         "Programming Language :: Python :: 3.8",
     ],
     keywords="pyrazine aws lambda layer",
-    packages=["pyrazine"],
+    packages=["pyrazine", "pyrazine.auth", "pyrazine.typing"],
     python_requires=">=3.6, <4",
     install_requires=[
         "setuptools==51.0.0"
