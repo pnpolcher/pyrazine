@@ -15,7 +15,7 @@ import aws_xray_sdk.core
 
 is_cold_start = True
 
-HandlerCallable = Callable[[JwtToken, Dict[str, object]], HttpResponse]
+HandlerCallable = Callable[[JwtToken, Dict[str, object], Dict[str, object]], HttpResponse]
 
 ENVIRONMENT = os.environ.get('ENVIRONMENT') or 'DEV'
 
@@ -28,11 +28,13 @@ class LambdaHandler(object):
 
     def __init__(self,
                  service_name: str = 'unknown_service',
+                 authorizer=None,
                  recorder: aws_xray_sdk.core.xray_recorder = None,
                  trace: bool = True):
         self._allowed_methods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS']
         self._routes = {}
 
+        self._authorizer = authorizer
         self._service_name = service_name
         self._trace = trace
         self._tracer = Tracer(recorder=recorder)
@@ -40,6 +42,10 @@ class LambdaHandler(object):
         if self._trace:
             logging.debug('Patching modules for instrumentation.')
             aws_xray_sdk.core.patch_all()
+
+    @property
+    def authorizer(self):
+        return self._authorizer
 
     @staticmethod
     def _get_body_object(http_event: HttpEvent) -> Tuple[bool, Dict[str, object]]:
@@ -82,7 +88,8 @@ class LambdaHandler(object):
                 logger.error(error_msg)
                 raise RuntimeError(error_msg)
 
-            response = handler(event.jwt, body)
+            # Context is passed empty, may change in the future.
+            response = handler(event.jwt, body, {})
         else:
             response = HttpResponse.build_error_response(404, message='Not found.')
 
@@ -105,7 +112,11 @@ class LambdaHandler(object):
         handler_name = handler.__name__
 
         @functools.wraps(handler)
-        def wrapper(token: JwtToken, body: Dict[str, object]) -> HttpResponse:
+        def wrapper(
+                token: JwtToken,
+                body: Dict[str, object],
+                context: Dict[str, object]) -> HttpResponse:
+
             logger.debug("Tracing handler executed")
             with self._tracer.in_subsegment(name=f"## {handler_name}") as subsegment:
                 global is_cold_start
@@ -116,7 +127,7 @@ class LambdaHandler(object):
 
                 try:
                     logger.debug(f'Starting handler {handler_name}')
-                    response = handler(token, body)
+                    response = handler(token, body, context)
                     logger.debug(f'Returned successfully from handler {handler_name}')
 
                     self._tracer.trace_route(

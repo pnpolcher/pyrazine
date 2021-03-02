@@ -2,7 +2,7 @@ import functools
 import json
 import os
 import time
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple, Union
 
 import urllib.request
 
@@ -33,15 +33,18 @@ class CognitoAuthorizer(BaseAuthorizer):
                  user_pool_id: str,
                  client_id: str,
                  region: str,
-                 auth_storage: BaseAuthStorage):
+                 auth_storage: BaseAuthStorage,
+                 verify_token: bool = True):
 
         self._client_id = client_id
         self._user_pool_id = user_pool_id if user_pool_id is not None else \
             os.environ.get('COGNITO_USER_POOL')
         self._region = region if region is not None else os.environ.get('COGNITO_REGION')
         self._auth_storage = auth_storage
+        self._verify_token = verify_token
 
-        self._initialize()
+        if verify_token:
+            self._initialize()
 
     def _initialize(self):
         keys_url = 'https://cognito-idp.{}.amazonaws.com/{}/.well-known/jwks.json' \
@@ -50,9 +53,12 @@ class CognitoAuthorizer(BaseAuthorizer):
             response = request.read()
         self._cognito_keys = json.loads(response.decode('utf-8'))['keys']
 
-    def _verify_jwt_token(self, token: str):
+    def _verify_jwt_token(self, token: str) -> dict:
         # Based on the code in:
         # https://github.com/awslabs/aws-support-tools/blob/master/Cognito/decode-verify-jwt/decode-verify-jwt.py
+
+        if not self._verify_token:
+            return jwt.get_unverified_claims(token)
 
         if token is None:
             raise InvalidTokenError('')
@@ -79,6 +85,7 @@ class CognitoAuthorizer(BaseAuthorizer):
             )
 
         claims = jwt.get_unverified_claims(token)
+
         if time.time() > claims['exp']:
             # Token expired
             raise JwtVerificationFailedError(
@@ -116,22 +123,38 @@ class CognitoAuthorizer(BaseAuthorizer):
         return profile
 
     def auth(self,
-             handler: HandlerCallable,
-             roles: Optional[List[str], Tuple[str]],
+             handler: HandlerCallable = None,
+             roles: Union[List[str], Tuple[str]] = None,
              fetch_full_profile: bool = False) -> HandlerCallable:
 
-        # TODO: Fetch user ID.
-        user_id = ''
+        if handler is None:
+            return functools.partial(self.auth,
+                                     roles=roles,
+                                     fetch_full_profile=fetch_full_profile)
+
+        if roles is None:
+            roles = []
+        elif not isinstance(roles, list) and not isinstance(roles, tuple):
+            raise TypeError('Allowed methods should be a list or tuple of strings.')
 
         @functools.wraps(handler)
-        def wrapper(token: JwtToken, body: Dict[str, object]) -> HttpResponse:
+        def wrapper(token: JwtToken, body: Dict[str, object], context: Dict[str, object]) -> HttpResponse:
 
-            # TODO: Add raw token to JwtToken to be consumed here.
+            # Verify the token.
             self._verify_jwt_token(token.raw_token)
-            profile = self._verify_roles(user_id, roles, fetch_full_profile)
 
-            # TODO: Pass the profile to the handler in a context object.
-            response = handler(token, body)
+            # Verify whether the user has the necessary roles.
+            # We use the sub claim as the user ID.
+            profile = self._verify_roles(token.sub, roles, fetch_full_profile)
+
+            if context is not None:
+                context['profile'] = profile
+            else:
+                context = {
+                    'profile': profile
+                }
+
+            response = handler(token, body, context)
             return response
 
         return wrapper

@@ -2,6 +2,7 @@ import logging
 
 from typing import Dict
 
+from pyrazine.auth import CognitoAuthorizer, DDBAuthStorage, SimpleUserProfile
 from pyrazine.handlers import LambdaHandler
 from pyrazine.jwt import JwtToken
 from pyrazine.response import HttpResponse
@@ -9,11 +10,34 @@ from pyrazine.response import HttpResponse
 
 logger = logging.getLogger('test')
 logger.setLevel(logging.DEBUG)
-handler = LambdaHandler()
+handler = LambdaHandler(
+    authorizer=CognitoAuthorizer(
+        user_pool_id='',
+        client_id='',
+        region='',
+        auth_storage=DDBAuthStorage(
+            user_table_name='',
+            user_profile_cls=SimpleUserProfile)
+    )
+)
 
 
-@handler.route(path='/', methods=('GET',), trace=True)
-def root_handler(token: JwtToken, body: Dict[str, object]) -> HttpResponse:
+@handler.authorizer.auth(roles=['admin'])
+@handler.route(path='/auth', methods=('GET',), trace=True)
+def auth_root_get_handler(
+        token: JwtToken,
+        body: Dict[str, object],
+        context: Dict[str, object]) -> HttpResponse:
+
+    return HttpResponse(200, body={'hello': 'world'})
+
+
+@handler.route(path='/noauth', methods=('GET',), trace=True)
+def noauth_root_get_handler(
+        token: JwtToken,
+        body: Dict[str, object],
+        context: Dict[str, object]) -> HttpResponse:
+
     return HttpResponse(200, body={'hello': 'world'})
 
 

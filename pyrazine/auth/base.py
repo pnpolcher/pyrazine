@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Iterable, List, Optional, Set, Tuple
+from typing import Dict, Iterable, List, Set, Tuple, Union
 
 from pyrazine.handlers import HandlerCallable
 
@@ -9,7 +9,7 @@ class BaseAuthorizer(ABC):
     @abstractmethod
     def auth(self,
              handler: HandlerCallable,
-             roles: Optional[List[str], Tuple[str]],
+             roles: Union[List[str], Tuple[str]],
              fetch_full_profile: bool = False) -> HandlerCallable:
 
         raise NotImplementedError('Method not implemented in abstract base class.')
@@ -31,11 +31,11 @@ class BaseUserProfile(ABC):
 
     @classmethod
     @abstractmethod
-    def from_document(cls, doc: Dict[str, Optional[Iterable, object]]):
+    def from_document(cls, doc: Dict[str, Union[Iterable, object]]):
         raise NotImplementedError('Method not implemented in abstract base class.')
 
     @abstractmethod
-    def to_document(self) -> Dict[str, Optional[Iterable, object]]:
+    def to_document(self) -> Dict[str, Union[Iterable, object]]:
         raise NotImplementedError('Method not implemented in abstract base class.')
 
 

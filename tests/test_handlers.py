@@ -73,7 +73,7 @@ class TestLambdaHandler(unittest.TestCase):
         handler = LambdaHandler(trace=False)
 
         @handler.route(path='/', methods=('GET',))
-        def test_method_no_trace(token, body):
+        def test_method_no_trace(token, body, context):
             return HttpResponse(200)
 
         # Make sure the route has been registered.
@@ -95,7 +95,7 @@ class TestLambdaHandler(unittest.TestCase):
         handler = LambdaHandler(recorder=mock_recorder)
 
         @handler.route(path='/', methods=('GET',))
-        def test_method(token, body):
+        def test_method(token, body, context):
             return HttpResponse(200)
 
         # Call the function associated with the route.
@@ -122,7 +122,7 @@ class TestLambdaHandler(unittest.TestCase):
         handler = LambdaHandler(trace=False)
 
         @handler.route(path='/', methods=('GET',))
-        def test_method(token, body):
+        def test_method(token, body, context):
             return HttpResponse(200, {'test_key': 'test_value'})
 
         # Call the function associated with the route.
@@ -130,8 +130,8 @@ class TestLambdaHandler(unittest.TestCase):
 
         self.assertEqual(response['statusCode'], 200)
 
-        body = json.loads(response['body'])
-        self.assertEqual(body['test_key'], 'test_value')
+        test_body = json.loads(response['body'])
+        self.assertEqual(test_body['test_key'], 'test_value')
 
     def test_route_error_message(self):
         """
@@ -142,7 +142,7 @@ class TestLambdaHandler(unittest.TestCase):
         handler = LambdaHandler(trace=False)
 
         @handler.route(path='/', methods=('GET',))
-        def test_handler(token, body):
+        def test_handler(token, body, context):
             return HttpResponse(500, message='Test error')
 
         # Call the function associated with the route.
@@ -150,5 +150,5 @@ class TestLambdaHandler(unittest.TestCase):
 
         self.assertEqual(response['statusCode'], 500)
 
-        body = json.loads(response['body'])
-        self.assertEqual(body['error']['message'], 'Test error')
+        test_body = json.loads(response['body'])
+        self.assertEqual(test_body['error']['message'], 'Test error')
