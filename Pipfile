@@ -12,10 +12,8 @@ boto3 = "*"
 nose2 = "*"
 pytest = "*"
 boto3 = "*"
+moto = "*"
+aws-xray-sdk = {extras = [ "models",], version = "*"}
 
 [requires]
 python_version = "3.8"
-
-[packages.aws-xray-sdk]
-extras = [ "models",]
-version = "*"

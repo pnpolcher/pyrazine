@@ -4,6 +4,12 @@ from typing import Dict, Set
 from tests.helpers import get_access_token
 from pyrazine.auth import CognitoAuthorizer
 from pyrazine.auth.base import BaseAuthStorage, BaseUserProfile
+from pyrazine.exceptions import (
+    InvalidTokenError,
+    JwkNotFoundError,
+    JwtVerificationFailedError,
+    NotAuthorizedError,
+)
 from pyrazine.jwt import JwtToken
 from pyrazine.response import HttpResponse
 
@@ -56,10 +62,63 @@ class TestCognitoAuthorizer(unittest.TestCase):
             self.assertEqual(context['profile'], None)
             return HttpResponse()
 
+        # Invoke the test handler.
         handler_pass(self._get_access_token(), {}, {})
 
-    def test_auth_wrong_role(self):
-        pass
+    def test_auth_wrong_role_one_available(self):
 
-    def test_auth_correct_role(self):
-        pass
+        self._auth_storage.set_mock_roles({'wrong_role'})
+
+        @self._authorizer.auth(roles=['right_role'])
+        def handler_pass(token, body, context) -> HttpResponse:
+            return HttpResponse()
+
+        with self.assertRaises(NotAuthorizedError):
+            handler_pass(self._get_access_token(), {}, {})
+
+    def test_auth_wrong_role_multiple_required_and_available(self):
+
+        self._auth_storage.set_mock_roles({'right_role_1', 'wrong_role'})
+
+        @self._authorizer.auth(roles=['right_role_1', 'right_role_2'])
+        def handler_pass(token, body, context) -> HttpResponse:
+            return HttpResponse()
+
+        with self.assertRaises(NotAuthorizedError):
+            handler_pass(self._get_access_token(), {}, {})
+
+    def test_auth_correct_role_when_one_required(self):
+
+        self._auth_storage.set_mock_roles({'role1'})
+
+        @self._authorizer.auth(roles=['role1'])
+        def handler_pass(token, body, context) -> HttpResponse:
+            self.assertIn('profile', context)
+            self.assertEqual(context['profile'], None)
+            return HttpResponse()
+
+        handler_pass(self._get_access_token(), {}, {})
+
+    def test_auth_correct_role_when_multiple_available(self):
+
+        self._auth_storage.set_mock_roles({'required_role', 'another_role'})
+
+        @self._authorizer.auth(roles=['required_role'])
+        def handler_pass(token, body, context) -> HttpResponse:
+            self.assertIn('profile', context)
+            self.assertEqual(context['profile'], None)
+            return HttpResponse()
+
+        handler_pass(self._get_access_token(), {}, {})
+
+    def test_auth_correct_role_when_multiple_required_and_available(self):
+
+        self._auth_storage.set_mock_roles({'required_role', 'another_role'})
+
+        @self._authorizer.auth(roles=['required_role', 'another_role'])
+        def handler_pass(token, body, context) -> HttpResponse:
+            self.assertIn('profile', context)
+            self.assertEqual(context['profile'], None)
+            return HttpResponse()
+
+        handler_pass(self._get_access_token(), {}, {})

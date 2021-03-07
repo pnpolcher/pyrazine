@@ -3,8 +3,14 @@ from typing import Tuple
 import unittest
 from unittest.mock import Mock
 
+import aws_xray_sdk.core as xray_core
+from aws_xray_sdk.core.models.subsegment import Subsegment
+from moto import mock_xray_client, XRaySegment
+from moto.xray.mock_client import MockEmitter
+
 from pyrazine.handlers import LambdaHandler
 from pyrazine.response import HttpResponse
+from pyrazine.typing import LambdaContext
 
 
 class TestLambdaHandler(unittest.TestCase):
@@ -41,25 +47,18 @@ class TestLambdaHandler(unittest.TestCase):
     }
 
     @staticmethod
-    def _get_mock_recorder() -> Tuple[Mock, Mock]:
-        mock_recorder = Mock()
-
-        mock_subsegment_ctxmgr = Mock()
-        mock_recorder.in_subsegment.return_value = mock_subsegment_ctxmgr
-
-        mock_subsegment = Mock()
-        mock_subsegment_ctxmgr.__enter__ = lambda *args: mock_subsegment
-        mock_subsegment_ctxmgr.__exit__ = lambda *args: None
-
-        return mock_recorder, mock_subsegment
-
-    @staticmethod
     def _is_route_registered(method: str, path: str, handler: LambdaHandler):
         return method in handler._routes and path in handler._routes[method]
 
     @staticmethod
     def _get_route_fn(method: str, path: str, handler: LambdaHandler):
         return handler._routes[method][path]
+
+    @staticmethod
+    def _get_lambda_context(function_name: str) -> LambdaContext:
+        return LambdaContext(function_name, '1', 'arn', 128,
+                             'req_id', 'log_group_name', 'log_stream_name',
+                             None, None)
 
     def setUp(self) -> None:
         pass
@@ -84,6 +83,7 @@ class TestLambdaHandler(unittest.TestCase):
             self._get_route_fn('GET', '/', handler),
             test_method_no_trace)
 
+    @mock_xray_client
     def test_tracing_in_registered_route(self):
         """
         Tests that a route that has been registered with tracing enabled is
@@ -91,25 +91,25 @@ class TestLambdaHandler(unittest.TestCase):
         :return:
         """
 
-        mock_recorder, mock_subsegment = self._get_mock_recorder()
-        handler = LambdaHandler(recorder=mock_recorder)
+        self.assertIsInstance(xray_core.xray_recorder._emitter, MockEmitter)
+
+        # mock_recorder, mock_subsegment = self._get_mock_recorder()
+        handler = LambdaHandler()  # recorder=mock_recorder)
 
         @handler.route(path='/', methods=('GET',))
         def test_method(token, body, context):
             return HttpResponse(200)
 
         # Call the function associated with the route.
-        handler.handle_request(self.TEST_HTTP_EVENT, {})
+        with XRaySegment():
+            handler.handle_request(self.TEST_HTTP_EVENT, self._get_lambda_context('TestFunction'))
 
-        # Check that the in_subsegment method was called to obtain a
-        # subsegment object.
-        mock_recorder.in_subsegment.assert_called_with(
-            name=f'## {test_method.__name__}')
+            segment = xray_core.xray_recorder.current_segment()
+            self.assertEqual(len(segment.subsegments), 1)
 
-        # Check that the put_annotation method was called to store the
-        # cold start status of the call.
-        mock_subsegment.put_annotation.assert_called_with(
-            key='ColdStart', value=True)
+            subsegment: Subsegment = segment.subsegments[0]
+            self.assertEqual(subsegment.name, '## test_method')
+            self.assertTrue(subsegment.annotations['ColdStart'])
 
     def test_route_response(self):
         """

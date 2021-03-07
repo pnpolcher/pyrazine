@@ -1,3 +1,4 @@
+from decimal import Decimal
 from typing import Dict, Iterable, Set, Union
 
 from pyrazine.auth.base import BaseUserProfile
@@ -82,7 +83,7 @@ class SimpleUserProfile(BaseUserProfile):
         self._roles = value
 
     @classmethod
-    def from_document(cls, doc: Dict[str, Union[Iterable, object]]):
+    def from_document(cls, doc: Dict[str, Union[str, int, float, Decimal, Iterable, object]]):
         """
         Creates a new instance of the SimpleUserProfile class from a dictionary
         containing user profile information.
@@ -99,7 +100,7 @@ class SimpleUserProfile(BaseUserProfile):
             user_id=doc['userId'] if 'userId' in doc else None,
         )
 
-    def to_document(self) -> Dict[str, Union[Iterable, object]]:
+    def to_document(self) -> Dict[str, Union[str, int, float, Decimal, Iterable, object]]:
         """
         Creates a document from this profile instance that can be stored in a
         database.

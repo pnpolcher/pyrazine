@@ -1,11 +1,12 @@
 import json
+import os
 import unittest
 from typing import Dict
 
 from pyrazine.jwt import JwtToken, CognitoJwtToken
 
-COGNITO_ACCESS_TOKEN_FILE = 'tests/cognito_access_token.json'
-COGNITO_ID_TOKEN_FILE = 'tests/cognito_id_token.json'
+COGNITO_ACCESS_TOKEN_FILE = os.path.join(os.getcwd(), 'cognito_access_token.json')
+COGNITO_ID_TOKEN_FILE = os.path.join(os.getcwd(), 'cognito_id_token.json')
 
 
 def _load_access_token() -> Dict[str, object]:

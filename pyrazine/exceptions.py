@@ -23,3 +23,15 @@ class JwtVerificationFailedError(Exception):
 
 class NotAuthorizedError(Exception):
     pass
+
+
+class UserNotFoundError(Exception):
+    _user_id: str
+
+    def __init__(self, user_id: str, message: str):
+        super().__init__(message)
+        self._user_id = user_id
+
+    @property
+    def user_id(self) -> str:
+        return self._user_id

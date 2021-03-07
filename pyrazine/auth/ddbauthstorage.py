@@ -1,6 +1,8 @@
+from decimal import Decimal
 import logging
-from typing import Set
+from typing import Optional, Set
 
+from pyrazine.exceptions import UserNotFoundError
 from pyrazine.auth.base import (
     BaseAuthStorage,
     BaseUserProfile,
@@ -23,7 +25,9 @@ class DDBAuthStorage(BaseAuthStorage):
                  user_table_name: str,
                  user_profile_cls: BaseUserProfile.__class__,
                  consistent_read: bool = False,
-                 endpoint_url: str = None):
+                 region_name: Optional[str] = None,
+                 endpoint_url: Optional[str] = None,
+                 decimal_from_float: bool = False):
         """
         Creates a new instance of the DDBAuthStorage class.
 
@@ -38,9 +42,14 @@ class DDBAuthStorage(BaseAuthStorage):
 
         self._consistent_read = consistent_read
 
-        self._ddb_resource = boto3.resource('dynamodb', endpoint_url=endpoint_url)
+        self._ddb_resource = boto3.resource(
+            'dynamodb',
+            region_name=region_name,
+            endpoint_url=endpoint_url,
+        )
         self._user_table = self._ddb_resource.Table(user_table_name)
         self._user_class = user_profile_cls
+        self._decimal_from_float = decimal_from_float
 
     def get_user_profile(self, user_id: str):
         """
@@ -51,7 +60,7 @@ class DDBAuthStorage(BaseAuthStorage):
         """
 
         try:
-            response = self._user_table(
+            response = self._user_table.get_item(
                 Key={
                     'userId': user_id,
                 },
@@ -61,11 +70,17 @@ class DDBAuthStorage(BaseAuthStorage):
             logger.exception(e)
             raise
         else:
+            if 'Item' not in response:
+                raise UserNotFoundError(
+                    user_id=user_id,
+                    message='User {user_id} not found in profile table.'
+                )
+
             return self._user_class.from_document(response['Item'])
 
     def get_user_roles(self, user_id: str) -> Set[str]:
         """
-        Only retrieves the roles assigned to a user. Preferrable to retrieving the whole
+        Only retrieves the roles assigned to a user. Preferable to retrieving the whole
         profile if just doing RBAC.
 
         :param user_id: The ID of the user to fetch the roles for.
@@ -73,7 +88,7 @@ class DDBAuthStorage(BaseAuthStorage):
         """
 
         try:
-            response = self._user_table(
+            response = self._user_table.get_item(
                 Key={
                     'userId': user_id,
                 },
@@ -89,8 +104,13 @@ class DDBAuthStorage(BaseAuthStorage):
             logger.exception(e)
             raise
         else:
-            item = response['Item']
-            return set(response['Item']['roles']) if 'roles' in item else set()
+            if 'Item' not in response:
+                raise UserNotFoundError(
+                    user_id=user_id,
+                    message='User {user_id} not found in profile table.'
+                )
+
+            return set(response['Item']['roles']) if 'roles' in response['Item'] else set()
 
     def put_user_profile(self, user_id: str, user_profile: BaseUserProfile) -> None:
         """
@@ -101,6 +121,13 @@ class DDBAuthStorage(BaseAuthStorage):
         :return:
         """
         item = user_profile.to_document()
+        float_keys = [k for k in item.keys() if isinstance(item[k], float)]
+        if len(float_keys) > 0 and not self._decimal_from_float:
+            raise ValueError(f'Fields {list(float_keys)} is a float, but decimal_to_float is false.')
+
+        # Convert any float values to decimals.
+        for key in float_keys:
+            item[key] = Decimal(str(item[key]))
 
         try:
             self._user_table.put_item(

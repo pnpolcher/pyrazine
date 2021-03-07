@@ -1,4 +1,5 @@
 import time
+from typing import Optional
 
 from pyrazine.typing.lambda_client_context import LambdaClientContext
 from pyrazine.typing.lambda_cognito_identity import LambdaCognitoIdentity
@@ -22,8 +23,8 @@ class LambdaContext(object):
                  aws_request_id: str,
                  log_group_name: str,
                  log_stream_name: str,
-                 identity: LambdaCognitoIdentity,
-                 client_context: LambdaClientContext):
+                 identity: Optional[LambdaCognitoIdentity] = None,
+                 client_context: Optional[LambdaClientContext] = None):
         """
         Initializes an instance of the LambdaContext class.
 
@@ -37,8 +38,8 @@ class LambdaContext(object):
         :param log_stream_name: The log stream for the function instance.
         :param identity: Information about the Amazon Cognito identity that
         authorized the request. (Only for mobile apps)
-        :param client_context: Returns the number of milliseconds left before
-        the execution times out. (Only for mobile apps)
+        :param client_context: Client context that's provided to Lambda by the client application.
+        (Only for mobile apps)
         """
 
         self._function_name = function_name

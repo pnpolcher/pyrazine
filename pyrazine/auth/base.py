@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from decimal import Decimal
 from typing import Dict, Iterable, List, Set, Tuple, Union
 
 from pyrazine.handlers import HandlerCallable
@@ -31,11 +32,11 @@ class BaseUserProfile(ABC):
 
     @classmethod
     @abstractmethod
-    def from_document(cls, doc: Dict[str, Union[Iterable, object]]):
+    def from_document(cls, doc: Dict[str, Union[str, int, float, Decimal, Iterable, object]]):
         raise NotImplementedError('Method not implemented in abstract base class.')
 
     @abstractmethod
-    def to_document(self) -> Dict[str, Union[Iterable, object]]:
+    def to_document(self) -> Dict[str, Union[str, int, float, Decimal, Iterable, object]]:
         raise NotImplementedError('Method not implemented in abstract base class.')
 
 
