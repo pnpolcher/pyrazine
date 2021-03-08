@@ -3,7 +3,7 @@
 set -e
 
 LAYER_DIR=".layers"
-LAYER_FILE_PREFIX="pyrazine"
+LAYER_FILE_PREFIX="pyrazine_layer_python"
 PYTHON_VERSIONS=("3.6" "3.7" "3.8")
 
 function build_layer {

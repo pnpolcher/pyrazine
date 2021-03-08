@@ -1,6 +1,10 @@
+import logging
 import re
 
 from pyrazine.jwt import JwtTokenParser
+
+
+logger = logging.getLogger()
 
 
 class HttpEvent(object):
@@ -35,15 +39,17 @@ class HttpEvent(object):
                 self.jwt = JwtTokenParser.parse_object(jwt)
                 self.jwt.raw_token = self._get_jwt_from_headers()
             else:
+                logger.debug('No authorizer data found.')
                 self.jwt = None
         else:
             self.jwt = None
 
     def _get_jwt_from_headers(self):
         if self.headers is not None and 'authorization' in self.headers:
-            m = re.match('[Bb]earer\\w+(.*)', self.headers['authorization'])
+            m = re.match('[Bb]earer\\s+(.*)', self.headers['authorization'])
             token = m[1].strip() if m is not None and len(m.groups()) == 1 else None
         else:
+            logger.debug('No authorization header found.')
             token = None
 
         return token

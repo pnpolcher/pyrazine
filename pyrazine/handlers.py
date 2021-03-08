@@ -237,6 +237,7 @@ class LambdaHandler(object):
                 f"Method {method_present} present, path {path_present} present.")
             response = HttpResponse.build_error_response(400, message='Bad request')
         elif method in self._allowed_methods:
+            logger.debug(f'Handling event for method {method} and path {path}')
             response = self._handle_event(http_event, path)
         else:
             response = HttpResponse.build_error_response(405, message='Method not allowed')

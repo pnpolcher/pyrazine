@@ -1,5 +1,6 @@
 import functools
 import json
+import logging
 import os
 import time
 from typing import Dict, List, Tuple, Union
@@ -22,6 +23,9 @@ from pyrazine.exceptions import (
 from pyrazine.handlers import HandlerCallable
 from pyrazine.jwt import JwtToken
 from pyrazine.response import HttpResponse
+
+
+logger = logging.getLogger()
 
 
 class CognitoAuthorizer(BaseAuthorizer):
@@ -61,7 +65,7 @@ class CognitoAuthorizer(BaseAuthorizer):
             return jwt.get_unverified_claims(token)
 
         if token is None:
-            raise InvalidTokenError('')
+            raise InvalidTokenError('No token was passed to verification function.')
 
         headers = jwt.get_unverified_headers(token)
         kid = headers['kid']
@@ -93,11 +97,17 @@ class CognitoAuthorizer(BaseAuthorizer):
                 'Token expired'
             )
 
-        if claims['aud'] != self._client_id:
+        if 'aud' in claims and claims['aud'] != self._client_id:
             # Token was not issued for this audience.
             raise JwtVerificationFailedError(
                 JwtVerificationFailedError.INVALID_AUDIENCE,
                 'Invalid audience'
+            )
+        elif 'client_id' in claims and claims['client_id'] != self._client_id:
+            # The expected client ID does not match that of the token.
+            raise JwtVerificationFailedError(
+                JwtVerificationFailedError.INVALID_AUDIENCE,
+                'Invalid client ID'
             )
 
         return claims
@@ -132,6 +142,8 @@ class CognitoAuthorizer(BaseAuthorizer):
                                      roles=roles,
                                      fetch_full_profile=fetch_full_profile)
 
+        logger.debug(f'Wrapping function {handler.__name__} with authorizer.')
+
         if roles is None:
             roles = []
         elif not isinstance(roles, list) and not isinstance(roles, tuple):
@@ -141,10 +153,12 @@ class CognitoAuthorizer(BaseAuthorizer):
         def wrapper(token: JwtToken, body: Dict[str, object], context: Dict[str, object]) -> HttpResponse:
 
             # Verify the token.
+            logger.debug('Verifying token.')
             self._verify_jwt_token(token.raw_token)
 
             # Verify whether the user has the necessary roles.
             # We use the sub claim as the user ID.
+            logger.debug('Verifying roles.')
             profile = self._verify_roles(token.sub, roles, fetch_full_profile)
 
             if context is not None:
@@ -154,6 +168,7 @@ class CognitoAuthorizer(BaseAuthorizer):
                     'profile': profile
                 }
 
+            logger.debug('Authorization checks passed - calling handler.')
             response = handler(token, body, context)
             return response
 

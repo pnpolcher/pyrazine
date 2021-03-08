@@ -31,7 +31,7 @@ class HttpResponse(object):
         :param status_code: The HTTP status code to return.
 
         :param body: The contents of the body in the HTTP response to send back
-        to the client.
+        to the client. If not specified, an empty body is returned.
 
         :param message: If the HTTP status code is an error code (4xx or 5xx),
         then the message is populate the message field of the error object
@@ -41,7 +41,7 @@ class HttpResponse(object):
         """
 
         self.status_code = status_code
-        self.body = body
+        self.body = body or {}
         self.message = message
         self._enable_cors = enable_cors
 
