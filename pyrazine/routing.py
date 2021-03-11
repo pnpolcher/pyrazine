@@ -1,16 +1,20 @@
+"""
+Routing in Pyrazine is handled by an instance of the Routing class (or any derived class).
+
+Every route needs to be registered using the corresponding `route` attribute, which indicates
+the handler that the method following the attribute should be indexed under the route pattern
+passed.
+
+Internally, the handler will instantiate a `Route` object with the path pattern. `Route` parses
+the path and builds a regex that matches only compliant paths. Then, the router stores the route
+internally.
+"""
+
 import re
 from typing import Any, Callable, ClassVar, Dict, List, Optional, Tuple
 
 
 AuthorizerCallable = Callable[[], bool]
-
-
-class RouteMatch(object):
-
-    _variables: Dict[str, Any]
-
-    def __init__(self, variables: Dict[str, Any]):
-        self._variable = variables
 
 
 class Route(object):
@@ -23,13 +27,19 @@ class Route(object):
         'float': '[+-]([0-9]*[.])?[0-9]+',
         'str': '[A-Za-z0-9-._~:/?#\\[\\]@!$&\'()*+,;%=]+',
     }
+    _CONVERTER_BY_TYPE: ClassVar[Dict[str, Any]] = {
+        'int': int,
+        'float': float,
+        'str': str,
+    }
+    _regex: re.Pattern
 
     def __init__(self, path: str) -> None:
         self._path = path
         self._regex, self._variable_map = self._compile_regex()
 
     @staticmethod
-    def _compile_regex(self) -> Tuple[object, Dict[int, Dict[str, str]]]:
+    def _compile_regex(self) -> Tuple[re.Pattern, Dict[int, Dict[str, str]]]:
         """
         Takes a path and produces a regex that matches against the path, extracting all
         variables as groups.
@@ -73,7 +83,7 @@ class Route(object):
                 regex = regex + f'{segment_type_regex}/'
                 variable_map[current_group] = {
                     'variable_name': variable_name,
-                    'type': segment_type
+                    'variable_type': segment_type
                 }
                 current_group = current_group + 1
             else:
@@ -83,17 +93,23 @@ class Route(object):
         regex = regex + '$'
         return re.compile(regex), variable_map
 
-    def match(self, path: str) -> Optional[RouteMatch]:
+    def _parse_variables(self, match: re.Match) -> Dict[str, Any]:
+        variables = {}
+        for group_n, var_data in self._variable_map.items():
+            var_name = var_data['variable_name']
+            var_type = var_data['variable_type']
+
+            converter = Route._CONVERTER_BY_TYPE.get(var_type, None) or str
+            var_value = converter(match[group_n])
+            variables[var_name] = var_value
+
+        return variables
+
+    def match(self, path: str) -> (bool, Optional[Dict[str, Any]]):
 
         match = self._regex.match(path)
-        if match is None:
-            return None
-
-        # variables: Dict[str, Any] = {
-        #     var_name: match[group_n] for (group_n, var_data) in self._variable_map.items()
-        # }
-
-        return RouteMatch(variables)
+        return False, None \
+            if match is None else True, self._parse_variables(match)
 
 
 class Router(object):
@@ -106,5 +122,12 @@ class Router(object):
     def add_route(self, path: str) -> None:
         self._routes.append(Route(path))
 
-    def route(self, path: str) -> Route:
-        pass
+    def route(self, path: str) -> None:
+        for route in self._routes:
+            matched, variables = route.match(path)
+            if matched:
+
+
+"""
+
+"""
