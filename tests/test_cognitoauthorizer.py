@@ -8,7 +8,7 @@ from pyrazine.exceptions import (
     InvalidTokenError,
     JwkNotFoundError,
     JwtVerificationFailedError,
-    NotAuthorizedError,
+    HttpForbiddenError,
 )
 from pyrazine.jwt import JwtToken
 from pyrazine.response import HttpResponse
@@ -73,7 +73,7 @@ class TestCognitoAuthorizer(unittest.TestCase):
         def handler_pass(token, body, context) -> HttpResponse:
             return HttpResponse()
 
-        with self.assertRaises(NotAuthorizedError):
+        with self.assertRaises(HttpForbiddenError):
             handler_pass(self._get_access_token(), {}, {})
 
     def test_auth_wrong_role_multiple_required_and_available(self):
@@ -84,7 +84,7 @@ class TestCognitoAuthorizer(unittest.TestCase):
         def handler_pass(token, body, context) -> HttpResponse:
             return HttpResponse()
 
-        with self.assertRaises(NotAuthorizedError):
+        with self.assertRaises(HttpForbiddenError):
             handler_pass(self._get_access_token(), {}, {})
 
     def test_auth_correct_role_when_one_required(self):

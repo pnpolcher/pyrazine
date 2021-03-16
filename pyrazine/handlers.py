@@ -2,11 +2,14 @@ import functools
 import json
 import logging
 import os
-from typing import Callable, Dict, List, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
+from pyrazine.errorhandling import BaseErrorHandler, DefaultErrorHandler
 from pyrazine.events import HttpEvent
+from pyrazine.exceptions import MethodNotAllowedError
 from pyrazine.jwt import JwtToken
 from pyrazine.response import HttpResponse
+from pyrazine.routing import Router, HandlerCallable
 from pyrazine.tracer import Tracer
 from pyrazine.typing import LambdaContext
 
@@ -14,8 +17,6 @@ import aws_xray_sdk.core
 
 
 is_cold_start = True
-
-HandlerCallable = Callable[[JwtToken, Dict[str, object], Dict[str, object]], HttpResponse]
 
 ENVIRONMENT = os.environ.get('ENVIRONMENT') or 'DEV'
 
@@ -26,11 +27,19 @@ logger.setLevel(logger_level)
 
 class LambdaHandler(object):
 
+    _error_handler: BaseErrorHandler
+    _router: Router
+
     def __init__(self,
                  service_name: str = 'unknown_service',
                  authorizer=None,
+                 error_handler: Optional[BaseErrorHandler] = None,
                  recorder: aws_xray_sdk.core.xray_recorder = None,
                  trace: bool = True):
+
+        self._error_handler = error_handler or DefaultErrorHandler()
+        self._router = Router()
+
         self._allowed_methods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS']
         self._routes = {}
 
@@ -74,22 +83,14 @@ class LambdaHandler(object):
         if method == 'OPTIONS':
             return HttpResponse.build_success_response()
 
-        success, body = self._get_body_object(event)
-        if success:
-            method_routes = self._routes.get(method)
-            if method_routes is None:
-                error_msg = f'No routes found for method {method}'
-                logger.error(error_msg)
-                raise KeyError(error_msg)
-
-            handler = method_routes.get(path)
-            if handler is None:
-                error_msg = f'No handler defined for method {method} and path {path}'
-                logger.error(error_msg)
-                raise RuntimeError(error_msg)
-
-            # Context is passed empty, may change in the future.
-            response = handler(event.jwt, body, {})
+        try:
+            success, body = self._get_body_object(event)
+            # TODO: Implement context handling.
+            context = {}
+            if success:
+                response = self._router.route(method, path, event.jwt, body, context)
+        except Exception as e:
+            response = self._error_handler.get_response(e, {})
         else:
             response = HttpResponse.build_error_response(404, message='Not found.')
 
@@ -229,6 +230,8 @@ class LambdaHandler(object):
         method = http_event.http_ctx_method
         path = http_event.path
 
+        # If either method or path have not been sent in the event, do not assume
+        # anything and just fail with a HTTP 400 code.
         if method is None or path is None:
             method_present = 'not' if method is None else ''
             path_present = 'not' if path is None else ''
@@ -236,10 +239,7 @@ class LambdaHandler(object):
             logger.error(
                 f"Method {method_present} present, path {path_present} present.")
             response = HttpResponse.build_error_response(400, message='Bad request')
-        elif method in self._allowed_methods:
-            logger.debug(f'Handling event for method {method} and path {path}')
-            response = self._handle_event(http_event, path)
         else:
-            response = HttpResponse.build_error_response(405, message='Method not allowed')
+            response = self._handle_event(http_event, path)
 
         return response.get_response_object()

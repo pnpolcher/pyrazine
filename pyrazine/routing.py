@@ -11,17 +11,28 @@ internally.
 """
 
 import re
-from typing import Any, Callable, ClassVar, Dict, List, Optional, Tuple
+from typing import Any, Callable, ClassVar, Dict, List, Optional, Set, Tuple, Union
+
+from pyrazine.exceptions import (
+    HttpNotFoundError,
+    MethodNotAllowedError,
+    HttpForbiddenError,
+)
+from pyrazine.jwt import JwtToken
+from pyrazine.response import HttpResponse
 
 
-AuthorizerCallable = Callable[[], bool]
+AuthorizerCallable = Callable[[Set[str]], bool]
+HandlerCallable = Callable[[JwtToken, Dict[str, Any], Dict[str, Any]], HttpResponse]
 
 
 class Route(object):
 
+    _methods: List[str]
     _path: str
     _variable_map: Dict[int, Dict[str, str]]
-    _authorizer: AuthorizerCallable
+    _authorizer: Optional[AuthorizerCallable]
+    _handler: HandlerCallable
     _REGEX_BY_TYPE: ClassVar[Dict[str, str]] = {
         'int': '\\d+',
         'float': '[+-]([0-9]*[.])?[0-9]+',
@@ -33,10 +44,38 @@ class Route(object):
         'str': str,
     }
     _regex: re.Pattern
+    _roles: Set[str]
 
-    def __init__(self, path: str) -> None:
+    def __init__(self, methods: Union[List[str], Tuple[str]], path: str) -> None:
+        self._methods = list([m.upper() for m in methods])
         self._path = path
         self._regex, self._variable_map = self._compile_regex()
+        self._roles = set()
+        self._authorizer = None
+
+    @property
+    def authorizer(self) -> Optional[AuthorizerCallable]:
+        return self._authorizer
+
+    @authorizer.setter
+    def authorizer(self, handler: Optional[AuthorizerCallable]) -> None:
+        self._authorizer = handler
+
+    @property
+    def handler(self) -> HandlerCallable:
+        return self._handler
+
+    @handler.setter
+    def handler(self, h: HandlerCallable) -> None:
+        self._handler = h
+
+    @property
+    def roles(self) -> Set[str]:
+        return self._roles
+
+    @roles.setter
+    def roles(self, r: Union[List[str], Tuple[str], Set[str]]) -> None:
+        self._roles = r if isinstance(r, set) else set(r)
 
     @staticmethod
     def _compile_regex(self) -> Tuple[re.Pattern, Dict[int, Dict[str, str]]]:
@@ -105,11 +144,22 @@ class Route(object):
 
         return variables
 
-    def match(self, path: str) -> (bool, Optional[Dict[str, Any]]):
+    def match(self, method: str, path: str) -> (bool, Optional[Dict[str, Any]]):
 
+        # Test if the regex matches the path.
         match = self._regex.match(path)
-        return False, None \
-            if match is None else True, self._parse_variables(match)
+
+        # If it doesn't, we can safely return False and try the next route.
+        if match is None:
+            return False, None
+        elif method.upper() not in self._methods:
+            # If the path matches, but the method is not in the allowed method list, then
+            # throw a MethodNotAllowedError exception, i.e.: we found the handler, but the
+            # method was not allowed.
+            raise MethodNotAllowedError(method, 'Method not allowed')
+
+        # Both method and path match, so parse the URL variables and return True.
+        return True, self._parse_variables(match)
 
 
 class Router(object):
@@ -119,14 +169,67 @@ class Router(object):
     def __init__(self) -> None:
         self._routes = []
 
-    def add_route(self, path: str) -> None:
-        self._routes.append(Route(path))
+    def add_route(self,
+                  methods: Union[List[str], Tuple[str]],
+                  path: str,
+                  handler: HandlerCallable,
+                  authorizer: Optional[AuthorizerCallable] = None) -> None:
+        """
+        Adds a route to the routing table.
 
-    def route(self, path: str) -> None:
+        :param methods: The allowed methods for this route.
+        :param path: The path expression to match.
+        :param handler: The handler used to process calls to this endpoint.
+        :param authorizer: The authorizer that tests whether the user is authorized to
+        invoke this endpoint.
+        :return: None.
+        """
+
+        route = Route(methods, path)
+        route.handler = handler
+        route.authorizer = authorizer
+
+        self._routes.append(route)
+
+    def route(self,
+              method: str,
+              path: str,
+              token: JwtToken,
+              body: Dict[str, Any],
+              ctx: Dict[str, Any]) -> HttpResponse:
+        """
+        Route the request to the right handler.
+
+        :param method: The HTTP method with which the endpoint was invoked.
+        :param path: The path to the endpoint.
+        :param token: The JWT token passed to the endpoint, if any.
+        :param body: The contents of the HTTP request body.
+        :param ctx: The local context of the request.
+        :return: A HttpResponse object with the result of the operation.
+        """
+
+        response = None
         for route in self._routes:
-            matched, variables = route.match(path)
-            if matched:
+            matched, variables = route.match(method, path)
 
+            # If the route matches, run the authorizer, if any is assigned to this route.
+            if matched:
+                if route.authorizer is None or \
+                        (route.authorizer is not None and route.authorizer(route.roles)):
+
+                    # Authorization passed, so run the handler.
+                    response = route.handler(token, body, ctx)
+                    break
+                else:
+                    # If the user is not authorized, raise an exception for a HTTP 403
+                    # Forbidden error.
+                    raise HttpForbiddenError()
+
+        # If no endpoint matched, raise an exception for a HTTP 404 Not Found error.
+        if response is None:
+            raise HttpNotFoundError()
+
+        return response
 
 """
 

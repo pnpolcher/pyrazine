@@ -1,3 +1,7 @@
+class HttpNotFoundError(Exception):
+    pass
+
+
 class InvalidTokenError(Exception):
     pass
 
@@ -21,7 +25,18 @@ class JwtVerificationFailedError(Exception):
         return self._error_code
 
 
-class NotAuthorizedError(Exception):
+class MethodNotAllowedError(Exception):
+
+    def __init__(self, method: str, message: str):
+        super().__init__(message)
+        self._method = method
+
+    @property
+    def method(self) -> str:
+        return self._method
+
+
+class HttpForbiddenError(Exception):
     pass
 
 

@@ -18,7 +18,7 @@ from pyrazine.exceptions import (
     InvalidTokenError,
     JwkNotFoundError,
     JwtVerificationFailedError,
-    NotAuthorizedError,
+    HttpForbiddenError,
 )
 from pyrazine.handlers import HandlerCallable
 from pyrazine.jwt import JwtToken
@@ -128,7 +128,7 @@ class CognitoAuthorizer(BaseAuthorizer):
         # Check that all needed roles are present in the set.
         for role in roles:
             if role not in user_roles:
-                raise NotAuthorizedError('Not authorized')
+                raise HttpForbiddenError('Not authorized')
 
         return profile
 
