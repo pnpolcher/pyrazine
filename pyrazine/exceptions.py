@@ -1,3 +1,6 @@
+class BadRequestError(Exception):
+    pass
+
 class HttpNotFoundError(Exception):
     pass
 

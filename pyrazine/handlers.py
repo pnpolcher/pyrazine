@@ -6,7 +6,7 @@ from typing import Dict, List, Optional, Tuple, Union
 
 from pyrazine.errorhandling import BaseErrorHandler, DefaultErrorHandler
 from pyrazine.events import HttpEvent
-from pyrazine.exceptions import MethodNotAllowedError
+from pyrazine.exceptions import BadRequestError
 from pyrazine.jwt import JwtToken
 from pyrazine.response import HttpResponse
 from pyrazine.routing import Router, HandlerCallable
@@ -40,9 +40,6 @@ class LambdaHandler(object):
         self._error_handler = error_handler or DefaultErrorHandler()
         self._router = Router()
 
-        self._allowed_methods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS']
-        self._routes = {}
-
         self._authorizer = authorizer
         self._service_name = service_name
         self._trace = trace
@@ -57,29 +54,28 @@ class LambdaHandler(object):
         return self._authorizer
 
     @staticmethod
-    def _get_body_object(http_event: HttpEvent) -> Tuple[bool, Dict[str, object]]:
+    def _get_body_object(http_event: HttpEvent) -> Dict[str, object]:
 
         # It's okay to have a «bodyless» request, maybe the endpoint does not
         # require any data. Just make sure to return an empty object.
         if http_event.body is None:
-            return True, {}
+            return {}
 
         # If there is actually something, let's make sure it's valid data.
         # Only JSON is supported at the moment.
         try:
             result = json.loads(http_event.body)
-            success = True
         except json.decoder.JSONDecodeError:
-            result = HttpResponse.build_error_response(400, message='Malformed JSON input')
-            success = False
+            raise BadRequestError('Malformed JSON input')
 
-        return success, result
+        return result
 
     def _handle_event(self, event: HttpEvent, path: str) -> Dict[str, object]:
 
         method = event.http_ctx_method.upper()
         logger.debug(f'Processing {method} route for path {path}')
 
+        # TODO: Better support for OPTIONS.
         if method == 'OPTIONS':
             return HttpResponse.build_success_response()
 
@@ -87,12 +83,9 @@ class LambdaHandler(object):
             success, body = self._get_body_object(event)
             # TODO: Implement context handling.
             context = {}
-            if success:
-                response = self._router.route(method, path, event.jwt, body, context)
+            response = self._router.route(method, path, event.jwt, body, context)
         except Exception as e:
             response = self._error_handler.get_response(e, {})
-        else:
-            response = HttpResponse.build_error_response(404, message='Not found.')
 
         return response
 
@@ -149,36 +142,13 @@ class LambdaHandler(object):
 
         return wrapper
 
-    def _add_route(self,
-                   method: str,
-                   path: str,
-                   handler: HandlerCallable,
-                   trace: bool = None,
-                   persist_response: bool = False) -> None:
-
-        if method not in self._allowed_methods:
-            raise ValueError("Method {0} not among the allowed methods.".format(method))
-
-        # Wrap handler with tracer, if tracing is enabled.
-        if trace or (trace is None and self._trace):
-            logger.debug(f"Tracer enabled for {method} {path}")
-            handler = self._tracer_wrap_handler(
-                handler,
-                persist_response=persist_response)
-
-        if method not in self._routes:
-            routes_by_method = {}
-            self._routes[method] = routes_by_method
-        else:
-            routes_by_method = self._routes[method]
-
-        routes_by_method[path] = handler
-
     def route(self,
               handler: HandlerCallable = None,
               path: str = None,
               methods: Union[List[str], Tuple[str]] = None,
               trace: bool = None,
+              authorization: bool = False,
+              roles: Union[List[str], Tuple[str]] = (),
               persist_response: bool = False):
         """
         Registers a function as a handler for a given combination of method and
@@ -189,22 +159,37 @@ class LambdaHandler(object):
         :param path: The path to the resource.
         :param methods: The methods that the resource accepts.
         :param trace: True, if calls to this function should be traced.
+        :param authorization: If True, this method requires that a user is authorized
+        to invoke it. Default is False.
+        :param roles: If this method requires authorization, this is a list of the roles
+        that a user needs to be allowed to invoke it. Default is an empty list.
         :param persist_response: True, if traces should be persisted as metadata
         within a trace subsegment.
         :return:
         """
 
+        logger.debug(f'Setting up route with methods {methods} for path {path}.')
+
         if handler is None:
             return functools.partial(self.route, path=path, methods=methods)
 
         if methods is None:
-            methods = ['GET']
+            methods = ('GET', )
         elif not isinstance(methods, list) and not isinstance(methods, tuple):
             raise TypeError('Allowed methods should be a list or tuple of strings.')
 
-        for method in methods:
-            self._add_route(method.upper(), path, handler,
-                            trace=trace, persist_response=persist_response)
+        # Wrap handler with tracer, if tracing is enabled.
+        if trace or (trace is None and self._trace):
+            handler = self._tracer_wrap_handler(
+                handler,
+                persist_response=persist_response)
+
+        # TODO: Build authorizer.
+        authorizer = None
+
+        self._router.add_route(methods, path, handler, authorizer)
+
+        logger.debug('Route set up successfully.')
 
         return handler
 
