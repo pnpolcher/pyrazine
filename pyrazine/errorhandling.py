@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, ClassVar, Dict, Optional
+from typing import Any, Dict
 
 from pyrazine.exceptions import (
     BadRequestError,
@@ -61,7 +61,7 @@ class DefaultErrorHandler(BaseErrorHandler):
             )
         elif isinstance(e, HttpForbiddenError):
             response = HttpResponse(
-                400, self.get_error_body(
+                403, self.get_error_body(
                     'Not authorized', {}
                 )
             )

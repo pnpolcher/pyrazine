@@ -12,8 +12,8 @@ import pytest
 
 class DDBAuthTest(unittest.TestCase):
 
-    LOCAL_LAMBDA_ENDPOINT='http://localhost:9001/'
-    LAMBDA_FUNCTION_NAME='test_lambda'
+    LOCAL_LAMBDA_ENDPOINT = 'http://localhost:9001/'
+    LAMBDA_FUNCTION_NAME = 'test_lambda'
 
     JWT_SECRET = 'pyrazine'
     CLAIMS = {

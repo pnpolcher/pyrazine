@@ -13,6 +13,7 @@ internally.
 import re
 from typing import Any, Callable, ClassVar, Dict, List, Optional, Set, Tuple, Union
 
+from pyrazine.context import RequestContext
 from pyrazine.exceptions import (
     HttpNotFoundError,
     MethodNotAllowedError,
@@ -22,8 +23,8 @@ from pyrazine.jwt import JwtToken
 from pyrazine.response import HttpResponse
 
 
-AuthorizerCallable = Callable[[Set[str]], bool]
-HandlerCallable = Callable[[JwtToken, Dict[str, Any], Dict[str, Any]], HttpResponse]
+AuthorizerCallable = Callable[[Set[str], JwtToken], bool]
+HandlerCallable = Callable[[JwtToken, Dict[str, Any], RequestContext], HttpResponse]
 
 
 class Route(object):
@@ -43,14 +44,34 @@ class Route(object):
         'float': float,
         'str': str,
     }
+    _VALID_HTTP_METHODS = {'GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD', 'PATCH', 'TRACE'}
     _regex: re.Pattern
     _roles: Set[str]
 
-    def __init__(self, methods: Union[List[str], Tuple[str]], path: str) -> None:
+    def __init__(self,
+                 methods: Union[List[str], Tuple[str]],
+                 path: str,
+                 roles: Optional[Union[List[str], Tuple[str]]] = None) -> None:
+        """
+        Constructs a new instance of the Route class, containing the methods by which this
+        endpoint can be invoked, together with a path pattern that needs to match in order to
+        invoke the handler for this endpoint.
+
+        :param methods: The methods that can be used to invoke this endpoint.
+        :param path: The path pattern that needs to be matched in order to invoke this
+        endpoint.
+        :param roles: The roles that a user needs in order to successfully invoke this endpoint, if
+        authorization is present. Defaults to None.
+        """
+
         self._methods = list([m.upper() for m in methods])
+        if not set(self._methods).issubset(Route._VALID_HTTP_METHODS):
+            invalid_methods = set(self._methods).difference(Route._VALID_HTTP_METHODS)
+            raise ValueError(f'The following methods are invalid: {invalid_methods}')
+
         self._path = path
         self._regex, self._variable_map = self._compile_regex()
-        self._roles = set()
+        self._roles = set(roles) if roles is not None else set()
         self._authorizer = None
 
     @property
@@ -73,11 +94,6 @@ class Route(object):
     def roles(self) -> Set[str]:
         return self._roles
 
-    @roles.setter
-    def roles(self, r: Union[List[str], Tuple[str], Set[str]]) -> None:
-        self._roles = r if isinstance(r, set) else set(r)
-
-    @staticmethod
     def _compile_regex(self) -> Tuple[re.Pattern, Dict[int, Dict[str, str]]]:
         """
         Takes a path and produces a regex that matches against the path, extracting all
@@ -119,7 +135,7 @@ class Route(object):
 
                 # Add the regex for this segment to the path regex and add the
                 # variable to the variable map.
-                regex = regex + f'{segment_type_regex}/'
+                regex = regex + f'({segment_type_regex})/'
                 variable_map[current_group] = {
                     'variable_name': variable_name,
                     'variable_type': segment_type
@@ -145,6 +161,19 @@ class Route(object):
         return variables
 
     def match(self, method: str, path: str) -> (bool, Optional[Dict[str, Any]]):
+        """
+        Tests whether a given set of method and path match this route.
+
+        :param method: The method with which an endpoint was invoked.
+        :param path: The path that points to the endpoint.
+        :return: A tuple, whose first element is True if both method and path matched,
+        and whose second element contains a dictionary of path variables matched, if any.
+        Otherwise, the variable dictionary is an empty dictionary.
+        """
+
+        # Make sure there is a trailing forward slash before matching.
+        if not path.endswith('/'):
+            path = f'{path}/'
 
         # Test if the regex matches the path.
         match = self._regex.match(path)
@@ -173,7 +202,8 @@ class Router(object):
                   methods: Union[List[str], Tuple[str]],
                   path: str,
                   handler: HandlerCallable,
-                  authorizer: Optional[AuthorizerCallable] = None) -> None:
+                  authorizer: Optional[AuthorizerCallable] = None,
+                  roles: Optional[Union[List[str], Tuple[str]]] = None) -> None:
         """
         Adds a route to the routing table.
 
@@ -182,10 +212,13 @@ class Router(object):
         :param handler: The handler used to process calls to this endpoint.
         :param authorizer: The authorizer that tests whether the user is authorized to
         invoke this endpoint.
+        :param roles: The roles that a user needs to successfully invoke this route, if
+        authorization is enabled. Defaults to
+        None.
         :return: None.
         """
 
-        route = Route(methods, path)
+        route = Route(methods, path, roles)
         route.handler = handler
         route.authorizer = authorizer
 
@@ -196,7 +229,7 @@ class Router(object):
               path: str,
               token: JwtToken,
               body: Dict[str, Any],
-              ctx: Dict[str, Any]) -> HttpResponse:
+              ctx: RequestContext) -> HttpResponse:
         """
         Route the request to the right handler.
 
@@ -215,9 +248,11 @@ class Router(object):
             # If the route matches, run the authorizer, if any is assigned to this route.
             if matched:
                 if route.authorizer is None or \
-                        (route.authorizer is not None and route.authorizer(route.roles)):
+                        (route.authorizer is not None
+                         and route.authorizer(route.roles, token) is not None):
 
                     # Authorization passed, so run the handler.
+                    ctx = ctx.copy(variables)
                     response = route.handler(token, body, ctx)
                     break
                 else:
@@ -230,7 +265,3 @@ class Router(object):
             raise HttpNotFoundError()
 
         return response
-
-"""
-
-"""

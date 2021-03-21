@@ -1,9 +1,8 @@
-import functools
 import json
 import logging
 import os
 import time
-from typing import Dict, List, Tuple, Union
+from typing import Any, List, Tuple, Union
 
 import urllib.request
 
@@ -20,9 +19,7 @@ from pyrazine.exceptions import (
     JwtVerificationFailedError,
     HttpForbiddenError,
 )
-from pyrazine.handlers import HandlerCallable
 from pyrazine.jwt import JwtToken
-from pyrazine.response import HttpResponse
 
 
 logger = logging.getLogger()
@@ -132,44 +129,26 @@ class CognitoAuthorizer(BaseAuthorizer):
 
         return profile
 
-    def auth(self,
-             handler: HandlerCallable = None,
-             roles: Union[List[str], Tuple[str]] = None,
-             fetch_full_profile: bool = False) -> HandlerCallable:
+    def authorizer(self,
+                   roles: Union[List[str], Tuple[str]],
+                   token: JwtToken,
+                   fetch_full_profile: bool = False) -> Any:
 
-        if handler is None:
-            return functools.partial(self.auth,
-                                     roles=roles,
-                                     fetch_full_profile=fetch_full_profile)
-
-        logger.debug(f'Wrapping function {handler.__name__} with authorizer.')
+        logger.debug(f'Cognito authorizer called.')
 
         if roles is None:
             roles = []
         elif not isinstance(roles, list) and not isinstance(roles, tuple):
             raise TypeError('Allowed methods should be a list or tuple of strings.')
 
-        @functools.wraps(handler)
-        def wrapper(token: JwtToken, body: Dict[str, object], context: Dict[str, object]) -> HttpResponse:
+        # Verify the token.
+        logger.debug('Verifying token.')
+        self._verify_jwt_token(token.raw_token)
 
-            # Verify the token.
-            logger.debug('Verifying token.')
-            self._verify_jwt_token(token.raw_token)
+        # Verify whether the user has the necessary roles.
+        # We use the sub claim as the user ID.
+        logger.debug('Verifying roles.')
+        profile = self._verify_roles(token.sub, roles, fetch_full_profile)
 
-            # Verify whether the user has the necessary roles.
-            # We use the sub claim as the user ID.
-            logger.debug('Verifying roles.')
-            profile = self._verify_roles(token.sub, roles, fetch_full_profile)
-
-            if context is not None:
-                context['profile'] = profile
-            else:
-                context = {
-                    'profile': profile
-                }
-
-            logger.debug('Authorization checks passed - calling handler.')
-            response = handler(token, body, context)
-            return response
-
-        return wrapper
+        logger.debug('Authorization checks passed.')
+        return profile

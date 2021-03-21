@@ -2,8 +2,10 @@ import functools
 import json
 import logging
 import os
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
+from pyrazine.auth.base import BaseAuthorizer
+from pyrazine.context import RequestContext
 from pyrazine.errorhandling import BaseErrorHandler, DefaultErrorHandler
 from pyrazine.events import HttpEvent
 from pyrazine.exceptions import BadRequestError
@@ -70,7 +72,7 @@ class LambdaHandler(object):
 
         return result
 
-    def _handle_event(self, event: HttpEvent, path: str) -> Dict[str, object]:
+    def _handle_event(self, event: HttpEvent, path: str) -> HttpResponse:
 
         method = event.http_ctx_method.upper()
         logger.debug(f'Processing {method} route for path {path}')
@@ -80,9 +82,8 @@ class LambdaHandler(object):
             return HttpResponse.build_success_response()
 
         try:
-            success, body = self._get_body_object(event)
-            # TODO: Implement context handling.
-            context = {}
+            body = self._get_body_object(event)
+            context = RequestContext()
             response = self._router.route(method, path, event.jwt, body, context)
         except Exception as e:
             response = self._error_handler.get_response(e, {})
@@ -109,7 +110,7 @@ class LambdaHandler(object):
         def wrapper(
                 token: JwtToken,
                 body: Dict[str, object],
-                context: Dict[str, object]) -> HttpResponse:
+                context: RequestContext) -> HttpResponse:
 
             logger.debug("Tracing handler executed")
             with self._tracer.in_subsegment(name=f"## {handler_name}") as subsegment:
@@ -171,7 +172,13 @@ class LambdaHandler(object):
         logger.debug(f'Setting up route with methods {methods} for path {path}.')
 
         if handler is None:
-            return functools.partial(self.route, path=path, methods=methods)
+            return functools.partial(self.route,
+                                     path=path,
+                                     methods=methods,
+                                     trace=trace,
+                                     authorization=authorization,
+                                     roles=roles,
+                                     persist_response=persist_response)
 
         if methods is None:
             methods = ('GET', )
@@ -184,10 +191,12 @@ class LambdaHandler(object):
                 handler,
                 persist_response=persist_response)
 
-        # TODO: Build authorizer.
-        authorizer = None
+        if authorization and isinstance(self._authorizer, BaseAuthorizer):
+            authorizer = self._authorizer.authorizer
+        else:
+            authorizer = None
 
-        self._router.add_route(methods, path, handler, authorizer)
+        self._router.add_route(methods, path, handler, authorizer, roles)
 
         logger.debug('Route set up successfully.')
 
@@ -196,7 +205,7 @@ class LambdaHandler(object):
     def handle_request(
             self,
             event: Dict[str, object],
-            context: LambdaContext) -> Dict[str, object]:
+            context: LambdaContext) -> Dict[str, Any]:
         """
         Invokes the corresponding route handler for the event and context objects
         passed and returns a dictionary of objects indexed by strings, compatible

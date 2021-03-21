@@ -1,4 +1,4 @@
-from typing import Any, Dict, Callable
+from typing import Any
 
 import aws_xray_sdk
 import aws_xray_sdk.core

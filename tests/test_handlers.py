@@ -1,16 +1,26 @@
 import json
-from typing import Tuple
+from typing import Any, List, Tuple, Union
 import unittest
-from unittest.mock import Mock
 
 import aws_xray_sdk.core as xray_core
 from aws_xray_sdk.core.models.subsegment import Subsegment
 from moto import mock_xray_client, XRaySegment
 from moto.xray.mock_client import MockEmitter
 
+from pyrazine.auth.base import BaseAuthorizer
 from pyrazine.handlers import LambdaHandler
+from pyrazine.jwt import JwtToken
 from pyrazine.response import HttpResponse
 from pyrazine.typing import LambdaContext
+
+
+class MockAuthorizer(BaseAuthorizer):
+    def authorizer(self,
+                   roles: Union[List[str], Tuple[str]],
+                   token: JwtToken,
+                   fetch_full_profile: bool = False) -> Any:
+
+        return {} if 'right_role' in roles else None
 
 
 class TestLambdaHandler(unittest.TestCase):
@@ -47,41 +57,10 @@ class TestLambdaHandler(unittest.TestCase):
     }
 
     @staticmethod
-    def _is_route_registered(method: str, path: str, handler: LambdaHandler):
-        return method in handler._routes and path in handler._routes[method]
-
-    @staticmethod
-    def _get_route_fn(method: str, path: str, handler: LambdaHandler):
-        return handler._routes[method][path]
-
-    @staticmethod
     def _get_lambda_context(function_name: str) -> LambdaContext:
         return LambdaContext(function_name, '1', 'arn', 128,
                              'req_id', 'log_group_name', 'log_stream_name',
                              None, None)
-
-    def setUp(self) -> None:
-        pass
-
-    def test_route_registration_no_trace(self):
-        """
-        Tests that a route has been registered, and that tracing is disabled for that route.
-        :return:
-        """
-
-        handler = LambdaHandler(trace=False)
-
-        @handler.route(path='/', methods=('GET',))
-        def test_method_no_trace(token, body, context):
-            return HttpResponse(200)
-
-        # Make sure the route has been registered.
-        self.assertTrue(self._is_route_registered('GET', '/', handler))
-
-        # Make sure the function associated is the same we registered.
-        self.assertEqual(
-            self._get_route_fn('GET', '/', handler),
-            test_method_no_trace)
 
     @mock_xray_client
     def test_tracing_in_registered_route(self):
@@ -93,8 +72,7 @@ class TestLambdaHandler(unittest.TestCase):
 
         self.assertIsInstance(xray_core.xray_recorder._emitter, MockEmitter)
 
-        # mock_recorder, mock_subsegment = self._get_mock_recorder()
-        handler = LambdaHandler()  # recorder=mock_recorder)
+        handler = LambdaHandler()
 
         @handler.route(path='/', methods=('GET',))
         def test_method(token, body, context):
@@ -126,7 +104,8 @@ class TestLambdaHandler(unittest.TestCase):
             return HttpResponse(200, {'test_key': 'test_value'})
 
         # Call the function associated with the route.
-        response = handler.handle_request(self.TEST_HTTP_EVENT, {})
+        response = handler.handle_request(
+            self.TEST_HTTP_EVENT, self._get_lambda_context('TestFunction'))
 
         self.assertEqual(response['statusCode'], 200)
 
@@ -146,9 +125,36 @@ class TestLambdaHandler(unittest.TestCase):
             return HttpResponse(500, message='Test error')
 
         # Call the function associated with the route.
-        response = handler.handle_request(self.TEST_HTTP_EVENT, {})
+        response = handler.handle_request(
+            self.TEST_HTTP_EVENT, self._get_lambda_context('TestFunction'))
 
         self.assertEqual(response['statusCode'], 500)
 
         test_body = json.loads(response['body'])
         self.assertEqual(test_body['error']['message'], 'Test error')
+
+    def test_route_authorization_when_right_role(self):
+
+        handler = LambdaHandler(trace=False, authorizer=MockAuthorizer())
+
+        @handler.route(path='/', methods=('GET', ), authorization=True, roles=['right_role'])
+        def test_handler(token, body, context):
+            return HttpResponse()
+
+        response = handler.handle_request(
+            self.TEST_HTTP_EVENT, self._get_lambda_context('TestFunction'))
+
+        self.assertEqual(response['statusCode'], 200)
+
+    def test_route_authorization_when_wrong_role(self):
+
+        handler = LambdaHandler(trace=False, authorizer=MockAuthorizer())
+
+        @handler.route(path='/', methods=('GET', ), authorization=True, roles=['wrong_role'])
+        def test_handler(token, body, context):
+            return HttpResponse()
+
+        response = handler.handle_request(
+            self.TEST_HTTP_EVENT, self._get_lambda_context('TestFunction'))
+
+        self.assertEqual(response['statusCode'], 403)

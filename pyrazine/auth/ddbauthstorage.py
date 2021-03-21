@@ -56,7 +56,8 @@ class DDBAuthStorage(BaseAuthStorage):
         Retrieves the whole profile for a given user ID.
 
         :param user_id: The ID of the user to fetch the profile for.
-        :return: A profile object that inherits from BaseUserProfile and exposing a from_document method.
+        :return: A profile object that inherits from BaseUserProfile and exposing a from_document
+        method.
         """
 
         try:
@@ -123,7 +124,8 @@ class DDBAuthStorage(BaseAuthStorage):
         item = user_profile.to_document()
         float_keys = [k for k in item.keys() if isinstance(item[k], float)]
         if len(float_keys) > 0 and not self._decimal_from_float:
-            raise ValueError(f'Fields {list(float_keys)} is a float, but decimal_to_float is false.')
+            raise ValueError(
+                f'Fields {list(float_keys)} is a float, but decimal_to_float is false.')
 
         # Convert any float values to decimals.
         for key in float_keys:

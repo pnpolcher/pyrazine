@@ -1,17 +1,17 @@
 from abc import ABC, abstractmethod
 from decimal import Decimal
-from typing import Dict, Iterable, List, Set, Tuple, Union
+from typing import Any, Dict, Iterable, List, Set, Tuple, Union
 
-from pyrazine.handlers import HandlerCallable
+from pyrazine.jwt import JwtToken
 
 
 class BaseAuthorizer(ABC):
     
     @abstractmethod
-    def auth(self,
-             handler: HandlerCallable,
-             roles: Union[List[str], Tuple[str]],
-             fetch_full_profile: bool = False) -> HandlerCallable:
+    def authorizer(self,
+                   roles: Union[List[str], Tuple[str]],
+                   token: JwtToken,
+                   fetch_full_profile: bool = False) -> Any:
 
         raise NotImplementedError('Method not implemented in abstract base class.')
 
