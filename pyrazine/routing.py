@@ -23,7 +23,7 @@ from pyrazine.jwt import JwtToken
 from pyrazine.response import HttpResponse
 
 
-AuthorizerCallable = Callable[[Set[str], JwtToken], bool]
+AuthorizerCallable = Callable[[Set[str], JwtToken, Optional[Dict[str, Any]]], bool]
 HandlerCallable = Callable[[JwtToken, Dict[str, Any], RequestContext], HttpResponse]
 
 
@@ -33,6 +33,7 @@ class Route(object):
     _path: str
     _variable_map: Dict[int, Dict[str, str]]
     _authorizer: Optional[AuthorizerCallable]
+    _auth_context: Optional[Dict[str, Any]]
     _handler: HandlerCallable
     _REGEX_BY_TYPE: ClassVar[Dict[str, str]] = {
         'int': '\\d+',
@@ -73,6 +74,7 @@ class Route(object):
         self._regex, self._variable_map = self._compile_regex()
         self._roles = set(roles) if roles is not None else set()
         self._authorizer = None
+        self._auth_context = {}
 
     @property
     def authorizer(self) -> Optional[AuthorizerCallable]:
@@ -81,6 +83,14 @@ class Route(object):
     @authorizer.setter
     def authorizer(self, handler: Optional[AuthorizerCallable]) -> None:
         self._authorizer = handler
+
+    @property
+    def auth_context(self) -> Dict[str, Any]:
+        return self._auth_context
+
+    @auth_context.setter
+    def auth_context(self, ctx: Optional[Dict[str, Any]]):
+        self._auth_context = ctx or {}
 
     @property
     def handler(self) -> HandlerCallable:
@@ -203,6 +213,7 @@ class Router(object):
                   path: str,
                   handler: HandlerCallable,
                   authorizer: Optional[AuthorizerCallable] = None,
+                  auth_context: Optional[Dict[str, Any]] = None,
                   roles: Optional[Union[List[str], Tuple[str]]] = None) -> None:
         """
         Adds a route to the routing table.
@@ -212,6 +223,8 @@ class Router(object):
         :param handler: The handler used to process calls to this endpoint.
         :param authorizer: The authorizer that tests whether the user is authorized to
         invoke this endpoint.
+        :param auth_context:A dictionary containing context information for the authorizer.
+        Default is False.
         :param roles: The roles that a user needs to successfully invoke this route, if
         authorization is enabled. Defaults to
         None.
@@ -221,6 +234,7 @@ class Router(object):
         route = Route(methods, path, roles)
         route.handler = handler
         route.authorizer = authorizer
+        route.auth_context = auth_context
 
         self._routes.append(route)
 
@@ -249,7 +263,7 @@ class Router(object):
             if matched:
                 if route.authorizer is None or \
                         (route.authorizer is not None
-                         and route.authorizer(route.roles, token) is not None):
+                         and route.authorizer(route.roles, token, route.auth_context) is not None):
 
                     # Authorization passed, so run the handler.
                     ctx = ctx.copy(variables)

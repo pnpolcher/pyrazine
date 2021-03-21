@@ -6,13 +6,12 @@ from pyrazine.jwt import JwtToken
 
 
 class BaseAuthorizer(ABC):
-    
+
     @abstractmethod
     def authorizer(self,
                    roles: Union[List[str], Tuple[str]],
                    token: JwtToken,
-                   fetch_full_profile: bool = False) -> Any:
-
+                   auth_context: Dict[str, Any] = None) -> Any:
         raise NotImplementedError('Method not implemented in abstract base class.')
 
 

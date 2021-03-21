@@ -34,10 +34,23 @@ class LambdaHandler(object):
 
     def __init__(self,
                  service_name: str = 'unknown_service',
-                 authorizer=None,
+                 authorizer: Any = None,
                  error_handler: Optional[BaseErrorHandler] = None,
                  recorder: aws_xray_sdk.core.xray_recorder = None,
                  trace: bool = True):
+        """
+        Constructs a new instance of the LambdaHandler class, which is responsible for handling
+        AWS Lambda events passed to the Lambda function.
+
+        :param service_name: THe name of the service provided by the AWS Lambda function.
+        :param authorizer: Optional argument to pass an authorizer. Currently supported are
+        authorizers derived of the BaseAuthorizer class. Defaults to None.
+        :param error_handler: Optional argument to pass a custom error handler. Must implement
+        BaseErrorHandler. Defaults to None. Passing None as the error handler instructs the
+        constructor to create an instance of the DefaultErrorHandler class.
+        :param recorder: An AWS X-Ray recorder instance. Defaults to None.
+        :param trace: Whether AWS X-Ray tracing should be enabled for this Lambda function.
+        """
 
         self._error_handler = error_handler or DefaultErrorHandler()
         self._router = Router()
@@ -58,6 +71,8 @@ class LambdaHandler(object):
     @staticmethod
     def _get_body_object(http_event: HttpEvent) -> Dict[str, object]:
 
+        # TODO: Handle binary payloads.
+
         # It's okay to have a «bodyless» request, maybe the endpoint does not
         # require any data. Just make sure to return an empty object.
         if http_event.body is None:
@@ -75,7 +90,7 @@ class LambdaHandler(object):
     def _handle_event(self, event: HttpEvent, path: str) -> HttpResponse:
 
         method = event.http_ctx_method.upper()
-        logger.debug(f'Processing {method} route for path {path}')
+        logger.debug(f'Handling event for route at {method} {path}.')
 
         # TODO: Better support for OPTIONS.
         if method == 'OPTIONS':
@@ -86,8 +101,10 @@ class LambdaHandler(object):
             context = RequestContext()
             response = self._router.route(method, path, event.jwt, body, context)
         except Exception as e:
+            logger.exception(e)
             response = self._error_handler.get_response(e, {})
 
+        logger.debug('Event handled.')
         return response
 
     @functools.lru_cache
@@ -149,6 +166,7 @@ class LambdaHandler(object):
               methods: Union[List[str], Tuple[str]] = None,
               trace: bool = None,
               authorization: bool = False,
+              auth_context: Optional[Dict[str, Any]] = None,
               roles: Union[List[str], Tuple[str]] = (),
               persist_response: bool = False):
         """
@@ -162,6 +180,8 @@ class LambdaHandler(object):
         :param trace: True, if calls to this function should be traced.
         :param authorization: If True, this method requires that a user is authorized
         to invoke it. Default is False.
+        :param auth_context: A dictionary containing context information for the authorizer.
+        Default is False.
         :param roles: If this method requires authorization, this is a list of the roles
         that a user needs to be allowed to invoke it. Default is an empty list.
         :param persist_response: True, if traces should be persisted as metadata
@@ -177,6 +197,7 @@ class LambdaHandler(object):
                                      methods=methods,
                                      trace=trace,
                                      authorization=authorization,
+                                     auth_context=auth_context,
                                      roles=roles,
                                      persist_response=persist_response)
 
@@ -196,7 +217,7 @@ class LambdaHandler(object):
         else:
             authorizer = None
 
-        self._router.add_route(methods, path, handler, authorizer, roles)
+        self._router.add_route(methods, path, handler, authorizer, auth_context, roles)
 
         logger.debug('Route set up successfully.')
 

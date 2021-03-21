@@ -2,7 +2,7 @@ import json
 import logging
 import os
 import time
-from typing import Any, List, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import urllib.request
 
@@ -132,9 +132,12 @@ class CognitoAuthorizer(BaseAuthorizer):
     def authorizer(self,
                    roles: Union[List[str], Tuple[str]],
                    token: JwtToken,
-                   fetch_full_profile: bool = False) -> Any:
+                   auth_context: Optional[Dict[str, Any]] = None) -> Any:
 
         logger.debug(f'Cognito authorizer called.')
+
+        auth_context = auth_context or {}
+        fetch_full_profile = auth_context.get('fetch_full_profile', False)
 
         if roles is None:
             roles = []
