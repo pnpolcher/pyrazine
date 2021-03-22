@@ -98,7 +98,11 @@ class LambdaHandler(object):
 
         try:
             body = self._get_body_object(event)
-            context = RequestContext()
+            context = RequestContext(
+                cookies=event.cookies,
+                headers=event.headers,
+                query_string=event.query_string,
+            )
             response = self._router.route(method, path, event.jwt, body, context)
         except Exception as e:
             logger.exception(e)

@@ -1,5 +1,7 @@
 import logging
 import re
+from typing import Any, Dict
+from urllib.parse import parse_qs
 
 from pyrazine.jwt import JwtTokenParser
 
@@ -19,6 +21,7 @@ class HttpEvent(object):
         self.raw_path = event.get('rawPath')
         self.raw_query_string = event.get('rawQueryString')
         self.headers = event.get('headers')
+        self.cookies = event.get('cookies')
 
         self.request_context = event.get('requestContext')
         if self.request_context is None:
@@ -53,6 +56,10 @@ class HttpEvent(object):
             token = None
 
         return token
+
+    @property
+    def query_string(self) -> Dict[Any, list]:
+        return parse_qs(self.raw_query_string)
 
     @property
     def req_ctx_account_id(self) -> str:
