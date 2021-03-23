@@ -74,7 +74,7 @@ class DDBAuthStorage(BaseAuthStorage):
             if 'Item' not in response:
                 raise UserNotFoundError(
                     user_id=user_id,
-                    message='User {user_id} not found in profile table.'
+                    message=f'User {user_id} not found in profile table.'
                 )
 
             return self._user_class.from_document(response['Item'])

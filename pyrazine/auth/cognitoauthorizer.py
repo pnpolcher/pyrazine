@@ -119,13 +119,13 @@ class CognitoAuthorizer(BaseAuthorizer):
             profile = self._auth_storage.get_user_profile(user_id)
             user_roles = profile.roles
         else:
-            profile = None
+            profile = {}
             user_roles = self._auth_storage.get_user_roles(user_id)
 
         # Check that all needed roles are present in the set.
-        for role in roles:
-            if role not in user_roles:
-                raise HttpForbiddenError('Not authorized')
+        logger.debug(f'User roles: {user_roles}, required roles: {roles}')
+        if not set(roles).issubset(user_roles):
+            raise HttpForbiddenError('Not authorized')
 
         return profile
 
@@ -142,7 +142,7 @@ class CognitoAuthorizer(BaseAuthorizer):
         if roles is None:
             roles = []
         elif not isinstance(roles, list) and not isinstance(roles, tuple):
-            raise TypeError('Allowed methods should be a list or tuple of strings.')
+            raise TypeError('Allowed roles should be a list or tuple of strings.')
 
         # Verify the token.
         logger.debug('Verifying token.')

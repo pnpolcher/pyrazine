@@ -23,7 +23,7 @@ from pyrazine.jwt import JwtToken
 from pyrazine.response import HttpResponse
 
 
-AuthorizerCallable = Callable[[Set[str], JwtToken, Optional[Dict[str, Any]]], bool]
+AuthorizerCallable = Callable[[List[str], JwtToken, Optional[Dict[str, Any]]], bool]
 HandlerCallable = Callable[[JwtToken, Dict[str, Any], RequestContext], HttpResponse]
 
 
@@ -47,7 +47,7 @@ class Route(object):
     }
     _VALID_HTTP_METHODS = {'GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD', 'PATCH', 'TRACE'}
     _regex: re.Pattern
-    _roles: Set[str]
+    _roles: List[str]
 
     def __init__(self,
                  methods: Union[List[str], Tuple[str]],
@@ -72,7 +72,7 @@ class Route(object):
 
         self._path = path
         self._regex, self._variable_map = self._compile_regex()
-        self._roles = set(roles) if roles is not None else set()
+        self._roles = list(roles) if roles is not None else list()
         self._authorizer = None
         self._auth_context = {}
 
@@ -101,7 +101,7 @@ class Route(object):
         self._handler = h
 
     @property
-    def roles(self) -> Set[str]:
+    def roles(self) -> List[str]:
         return self._roles
 
     def _compile_regex(self) -> Tuple[re.Pattern, Dict[int, Dict[str, str]]]:
@@ -261,18 +261,18 @@ class Router(object):
 
             # If the route matches, run the authorizer, if any is assigned to this route.
             if matched:
-                if route.authorizer is None or \
-                        (route.authorizer is not None
-                         and route.authorizer(route.roles, token, route.auth_context) is not None):
-
-                    # Authorization passed, so run the handler.
-                    ctx = ctx.copy(variables)
-                    response = route.handler(token, body, ctx)
-                    break
+                # If the method needs authorization, run the authorizer. If the user is not
+                # authorized to invoke the endpoint, the authorizer should throw a ForbiddenError
+                # exception.
+                if route.authorizer is not None:
+                    profile = route.authorizer(route.roles, token, route.auth_context)
                 else:
-                    # If the user is not authorized, raise an exception for a HTTP 403
-                    # Forbidden error.
-                    raise HttpForbiddenError()
+                    profile = None
+
+                # Authorization passed, so run the handler.
+                ctx = ctx.copy(path_variables=variables, profile=profile)
+
+                response = route.handler(token, body, ctx)
 
         # If no endpoint matched, raise an exception for a HTTP 404 Not Found error.
         if response is None:

@@ -1,16 +1,16 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 
 class RequestContext(object):
 
-    _cookies: Dict[str, str]
+    _cookies: List[str]
     _headers: Dict[str, str]
     _path_variables: Dict[str, Any]
     _profile: Any
     _query_string: Dict[Any, list]
 
     def __init__(self,
-                 cookies: Optional[Dict[str, str]] = None,
+                 cookies: Optional[List[str]] = None,
                  headers: Optional[Dict[str, str]] = None,
                  query_string: Optional[Dict[Any, list]] = None,
                  path_variables: Optional[Dict[str, Any]] = None,
@@ -23,7 +23,7 @@ class RequestContext(object):
         self._query_string = query_string or {}
 
     @property
-    def cookies(self) -> Dict[str, str]:
+    def cookies(self) -> List[str]:
         return self._cookies
 
     @property
@@ -49,14 +49,15 @@ class RequestContext(object):
              profile: Optional[Any] = None,
              query_string: Optional[Dict[Any, list]] = None):
 
-        merged_cookies = cookies or {}
-        merged_cookies.update(self.cookies)
+        merged_cookies = cookies or []
+#        merged_cookies.update(self.cookies)
+        merged_cookies = merged_cookies + self.cookies
 
         merged_headers = headers or {}
         merged_headers.update(self.headers)
 
         merged_query_string = query_string or {}
-        merged_query_string.update(query_string)
+        merged_query_string.update(self.query_string)
 
         pathvars = path_variables or {}
         pathvars.update(self.path_variables)
