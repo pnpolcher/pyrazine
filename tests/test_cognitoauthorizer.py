@@ -53,7 +53,7 @@ class TestCognitoAuthorizer(unittest.TestCase):
         self._auth_storage.set_mock_roles(set())
 
         profile = self._authorizer.authorizer([], self._get_access_token())
-        self.assertIsNone(profile)
+        self.assertIsInstance(profile, dict)
 
     def test_auth_wrong_role_one_available(self):
 
@@ -74,14 +74,14 @@ class TestCognitoAuthorizer(unittest.TestCase):
         self._auth_storage.set_mock_roles({'right_role'})
 
         profile = self._authorizer.authorizer(['right_role'], self._get_access_token())
-        self.assertIsNone(profile)
+        self.assertIsInstance(profile, dict)
 
     def test_auth_correct_role_when_multiple_available(self):
 
         self._auth_storage.set_mock_roles({'required_role', 'another_role'})
 
         profile = self._authorizer.authorizer(['required_role'], self._get_access_token())
-        self.assertIsNone(profile)
+        self.assertIsInstance(profile, dict)
 
     def test_auth_correct_role_when_multiple_required_and_available(self):
 
@@ -89,4 +89,4 @@ class TestCognitoAuthorizer(unittest.TestCase):
 
         profile = self._authorizer.authorizer(['required_role', 'another_role'],
                                               self._get_access_token())
-        self.assertIsNone(profile)
+        self.assertIsInstance(profile, dict)

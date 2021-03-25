@@ -8,7 +8,8 @@ from moto import mock_xray_client, XRaySegment
 from moto.xray.mock_client import MockEmitter
 
 from pyrazine.auth.base import BaseAuthorizer
-from pyrazine.handlers import LambdaHandler
+from pyrazine.exceptions import HttpForbiddenError
+from pyrazine.handlers import ApiGatewayEventHandler
 from pyrazine.jwt import JwtToken
 from pyrazine.response import HttpResponse
 from pyrazine.typing import LambdaContext
@@ -20,7 +21,10 @@ class MockAuthorizer(BaseAuthorizer):
                    token: JwtToken,
                    fetch_full_profile: bool = False) -> Any:
 
-        return {} if 'right_role' in roles else None
+        if 'right_role' not in roles:
+            raise HttpForbiddenError()
+        else:
+            return {}
 
 
 class TestLambdaHandler(unittest.TestCase):
@@ -72,7 +76,7 @@ class TestLambdaHandler(unittest.TestCase):
 
         self.assertIsInstance(xray_core.xray_recorder._emitter, MockEmitter)
 
-        handler = LambdaHandler()
+        handler = ApiGatewayEventHandler()
 
         @handler.route(path='/', methods=('GET',))
         def test_method(token, body, context):
@@ -97,7 +101,7 @@ class TestLambdaHandler(unittest.TestCase):
         :return:
         """
 
-        handler = LambdaHandler(trace=False)
+        handler = ApiGatewayEventHandler(trace=False)
 
         @handler.route(path='/', methods=('GET',))
         def test_method(token, body, context):
@@ -118,7 +122,7 @@ class TestLambdaHandler(unittest.TestCase):
         :return:
         """
 
-        handler = LambdaHandler(trace=False)
+        handler = ApiGatewayEventHandler(trace=False)
 
         @handler.route(path='/', methods=('GET',))
         def test_handler(token, body, context):
@@ -135,7 +139,7 @@ class TestLambdaHandler(unittest.TestCase):
 
     def test_route_authorization_when_right_role(self):
 
-        handler = LambdaHandler(trace=False, authorizer=MockAuthorizer())
+        handler = ApiGatewayEventHandler(trace=False, authorizer=MockAuthorizer())
 
         @handler.route(path='/', methods=('GET', ), authorization=True, roles=['right_role'])
         def test_handler(token, body, context):
@@ -148,7 +152,7 @@ class TestLambdaHandler(unittest.TestCase):
 
     def test_route_authorization_when_wrong_role(self):
 
-        handler = LambdaHandler(trace=False, authorizer=MockAuthorizer())
+        handler = ApiGatewayEventHandler(trace=False, authorizer=MockAuthorizer())
 
         @handler.route(path='/', methods=('GET', ), authorization=True, roles=['wrong_role'])
         def test_handler(token, body, context):

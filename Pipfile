@@ -7,13 +7,19 @@ name = "pypi"
 pylint = "*"
 python-jose = "*"
 boto3 = "*"
+requests = "==2.25.1"
+pep517 = "==0.10.0"
+msgpack = "==1.0.2"
 
 [dev-packages]
 nose2 = "*"
 pytest = "*"
 boto3 = "*"
 moto = "*"
-aws-xray-sdk = {extras = [ "models",], version = "*"}
 
 [requires]
 python_version = "3.8"
+
+[dev-packages.aws-xray-sdk]
+extras = [ "models",]
+version = "*"

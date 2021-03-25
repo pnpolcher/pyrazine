@@ -3,14 +3,14 @@ import logging
 from typing import Dict
 
 from pyrazine.auth import CognitoAuthorizer, DDBAuthStorage, SimpleUserProfile
-from pyrazine.handlers import LambdaHandler
+from pyrazine.handlers import ApiGatewayEventHandler
 from pyrazine.jwt import JwtToken
 from pyrazine.response import HttpResponse
 
 
 logger = logging.getLogger('test')
 logger.setLevel(logging.DEBUG)
-handler = LambdaHandler(
+handler = ApiGatewayEventHandler(
     authorizer=CognitoAuthorizer(
         user_pool_id='',
         client_id='',

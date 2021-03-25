@@ -16,7 +16,7 @@ class RequestContext(object):
                  path_variables: Optional[Dict[str, Any]] = None,
                  profile: Optional[Any] = None):
 
-        self._cookies = cookies or {}
+        self._cookies = cookies or []
         self._headers = headers or {}
         self._path_variables = path_variables or {}
         self._profile = profile

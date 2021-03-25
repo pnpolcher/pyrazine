@@ -27,7 +27,7 @@ logger_level = logging.DEBUG if ENVIRONMENT == 'DEV' else logging.INFO
 logger.setLevel(logger_level)
 
 
-class LambdaHandler(object):
+class ApiGatewayEventHandler(object):
 
     _error_handler: BaseErrorHandler
     _router: Router
