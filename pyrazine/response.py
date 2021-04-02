@@ -11,6 +11,8 @@ class HttpResponseSerializer(json.JSONEncoder):
     def default(self, o):
         if isinstance(o, decimal.Decimal):
             return str(o)
+        elif isinstance(o, set):
+            return list(o)
         else:
             return super().default(o)
 

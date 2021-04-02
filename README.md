@@ -20,11 +20,11 @@ in a matter of hours.
 ```python
 from typing import Dict
 
-from pyrazine.handlers import LambdaHandler
+from pyrazine.handlers import ApiGatewayEventHandler
 from pyrazine.jwt import JwtToken
 from pyrazine.response import HttpResponse
 
-handler = LambdaHandler()
+handler = ApiGatewayEventHandler()
 
 
 @handler.route(path='/', methods=('GET',), trace=True)

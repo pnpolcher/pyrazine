@@ -32,13 +32,14 @@ class TestRoute(unittest.TestCase):
     def test_route_methods(self):
         for repeats in range(1, len(TestRoute._VALID_METHODS) + 1):
             for methods in itertools.combinations(TestRoute._VALID_METHODS, repeats):
-                _ = Route(methods, '/')
+                Route('/').add_handler(methods, self._mock_handler)
 
         with self.assertRaises(ValueError):
-            Route(['NOMETHOD'], '/')
+            Route('/').add_handler(['NOMETHOD'], self._mock_handler)
 
     def test_route_patterns(self):
-        root_route = Route(['GET'], '/')
+        root_route = Route('/')
+        root_route.add_handler(['GET'], self._mock_handler)
         self.assertTrue(root_route.match('GET', '/')[0])
         with self.assertRaises(MethodNotAllowedError):
             root_route.match('POST', '/')
@@ -47,21 +48,25 @@ class TestRoute(unittest.TestCase):
         self.assertFalse(root_route.match('GET', '/test/')[0])
 
         simple_long_path = '/submit/sample_path'
-        simple_long_route = Route(['POST'], simple_long_path)
+        simple_long_route = Route(simple_long_path)
+        simple_long_route.add_handler(['POST'], self._mock_handler)
         self.assertTrue(simple_long_route.match('POST', simple_long_path)[0])
         self.assertFalse(simple_long_route.match('POST', '/')[0])
 
-        simple_typed_repl_route = Route(['PUT'], '/users/<int:user_id>')
+        simple_typed_repl_route = Route('/users/<int:user_id>')
+        simple_typed_repl_route.add_handler(['PUT'], self._mock_handler)
         match, variables = simple_typed_repl_route.match('PUT', '/users/10')
         self.assertTrue(match)
         self.assertEqual(variables.get('user_id', None), 10)
 
-        simple_untyped_repl_route = Route(['PUT'], '/users/<user_id>')
+        simple_untyped_repl_route = Route('/users/<user_id>')
+        simple_untyped_repl_route.add_handler(['PUT'], self._mock_handler)
         match, variables = simple_untyped_repl_route.match('PUT', '/users/abc')
         self.assertTrue(match)
         self.assertEqual(variables.get('user_id', None), 'abc')
 
-        complex_typed_repl_route = Route(['PATCH'], '/users/<str:user_id>/<int:page>')
+        complex_typed_repl_route = Route('/users/<str:user_id>/<int:page>')
+        complex_typed_repl_route.add_handler(['PATCH'], self._mock_handler)
         match, variables = complex_typed_repl_route.match('PATCH', '/users/abc/1')
         self.assertTrue(match)
         self.assertEqual(variables.get('user_id', None), 'abc')
@@ -105,8 +110,25 @@ class TestRoute(unittest.TestCase):
             self._mock_success_authorizer
         )
 
-        response = router.route('GET', '/users', token=get_access_token(), body={}, ctx=RequestContext())
+        response = router.route('GET', '/users',
+                                token=get_access_token(), body={}, ctx=RequestContext())
         self.assertEqual(response.body['return_value'], 3)
 
-        response = router.route('GET', '/users/1', token=get_access_token(), body={}, ctx=RequestContext())
+        response = router.route('GET', '/users/1',
+                                token=get_access_token(), body={}, ctx=RequestContext())
         self.assertEqual(response.body['return_value'], 2)
+
+    def test_router_two_handlers_two_methods(self):
+
+        router = Router()
+
+        # Add two handlers pointing to the same path with different methods.
+        router.add_route(['GET'], '/', partial(self._mock_handler, return_value=-1))
+        router.add_route(['POST'], '/', partial(self._mock_handler, return_value=1))
+
+        response = router.route('POST', '/',
+                                token=get_access_token(), body={}, ctx=RequestContext())
+        self.assertEqual(response.body['return_value'], 1)
+        response = router.route('GET', '/',
+                                token=get_access_token(), body={}, ctx=RequestContext())
+        self.assertEqual(response.body['return_value'], -1)

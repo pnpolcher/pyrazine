@@ -17,13 +17,12 @@ from pyrazine.context import RequestContext
 from pyrazine.exceptions import (
     HttpNotFoundError,
     MethodNotAllowedError,
-    HttpForbiddenError,
 )
 from pyrazine.jwt import JwtToken
 from pyrazine.response import HttpResponse
 
 
-AuthorizerCallable = Callable[[List[str], JwtToken, Optional[Dict[str, Any]]], bool]
+AuthorizerCallable = Callable[[List[str], JwtToken, Optional[Dict[str, Any]]], Any]
 HandlerCallable = Callable[[JwtToken, Dict[str, Any], RequestContext], HttpResponse]
 
 
@@ -32,9 +31,9 @@ class Route(object):
     _methods: List[str]
     _path: str
     _variable_map: Dict[int, Dict[str, str]]
-    _authorizer: Optional[AuthorizerCallable]
-    _auth_context: Optional[Dict[str, Any]]
-    _handler: HandlerCallable
+    _authorizers: Dict[str, AuthorizerCallable]
+    _auth_contexts: Dict[str, Dict[str, Any]]
+    _handlers: Dict[str, HandlerCallable]
     _REGEX_BY_TYPE: ClassVar[Dict[str, str]] = {
         'int': '\\d+',
         'float': '[+-]([0-9]*[.])?[0-9]+',
@@ -47,62 +46,28 @@ class Route(object):
     }
     _VALID_HTTP_METHODS = {'GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD', 'PATCH', 'TRACE'}
     _regex: re.Pattern
-    _roles: List[str]
+    _roles: Dict[str, Set[str]]
 
-    def __init__(self,
-                 methods: Union[List[str], Tuple[str]],
-                 path: str,
-                 roles: Optional[Union[List[str], Tuple[str]]] = None) -> None:
+    def __init__(self, path: str) -> None:
         """
         Constructs a new instance of the Route class, containing the methods by which this
         endpoint can be invoked, together with a path pattern that needs to match in order to
         invoke the handler for this endpoint.
 
-        :param methods: The methods that can be used to invoke this endpoint.
         :param path: The path pattern that needs to be matched in order to invoke this
         endpoint.
-        :param roles: The roles that a user needs in order to successfully invoke this endpoint, if
-        authorization is present. Defaults to None.
         """
-
-        self._methods = list([m.upper() for m in methods])
-        if not set(self._methods).issubset(Route._VALID_HTTP_METHODS):
-            invalid_methods = set(self._methods).difference(Route._VALID_HTTP_METHODS)
-            raise ValueError(f'The following methods are invalid: {invalid_methods}')
 
         self._path = path
         self._regex, self._variable_map = self._compile_regex()
-        self._roles = list(roles) if roles is not None else list()
-        self._authorizer = None
-        self._auth_context = {}
+        self._handlers = {}
+        self._authorizers = {}
+        self._auth_contexts = {}
+        self._roles = {}
 
     @property
-    def authorizer(self) -> Optional[AuthorizerCallable]:
-        return self._authorizer
-
-    @authorizer.setter
-    def authorizer(self, handler: Optional[AuthorizerCallable]) -> None:
-        self._authorizer = handler
-
-    @property
-    def auth_context(self) -> Dict[str, Any]:
-        return self._auth_context
-
-    @auth_context.setter
-    def auth_context(self, ctx: Optional[Dict[str, Any]]):
-        self._auth_context = ctx or {}
-
-    @property
-    def handler(self) -> HandlerCallable:
-        return self._handler
-
-    @handler.setter
-    def handler(self, h: HandlerCallable) -> None:
-        self._handler = h
-
-    @property
-    def roles(self) -> List[str]:
-        return self._roles
+    def path(self) -> str:
+        return self._path
 
     def _compile_regex(self) -> Tuple[re.Pattern, Dict[int, Dict[str, str]]]:
         """
@@ -170,6 +135,37 @@ class Route(object):
 
         return variables
 
+    def add_handler(self,
+                    methods: Union[List[str], Tuple[str]],
+                    handler: HandlerCallable,
+                    authorizer: AuthorizerCallable = None,
+                    auth_context: Dict[str, Any] = None,
+                    roles: Optional[Union[List[str], Tuple[str]]] = None) -> None:
+        """
+
+        :param methods: The methods that can be used to invoke this endpoint.
+        :param handler:
+        :param authorizer:
+        :param auth_context:
+        :param roles: The roles that a user needs in order to successfully invoke this endpoint, if
+        authorization is present. Defaults to None.
+        :return:
+        """
+
+        methods = list([m.upper() for m in methods])
+        if not set(methods).issubset(Route._VALID_HTTP_METHODS):
+            invalid_methods = set(methods).difference(Route._VALID_HTTP_METHODS)
+            raise ValueError(f'The following methods are invalid: {invalid_methods}')
+
+        for method in methods:
+            self._handlers[method] = handler
+            if authorizer is not None:
+                self._authorizers[method] = authorizer
+            if auth_context is not None:
+                self._auth_contexts[method] = auth_context
+            if roles is not None:
+                self._roles[method] = set(roles)
+
     def match(self, method: str, path: str) -> (bool, Optional[Dict[str, Any]]):
         """
         Tests whether a given set of method and path match this route.
@@ -191,7 +187,7 @@ class Route(object):
         # If it doesn't, we can safely return False and try the next route.
         if match is None:
             return False, None
-        elif method.upper() not in self._methods:
+        elif method.upper() not in self._handlers:
             # If the path matches, but the method is not in the allowed method list, then
             # throw a MethodNotAllowedError exception, i.e.: we found the handler, but the
             # method was not allowed.
@@ -199,6 +195,37 @@ class Route(object):
 
         # Both method and path match, so parse the URL variables and return True.
         return True, self._parse_variables(match)
+
+    def authorize(self, method: str, token: JwtToken) -> Any:
+        """
+
+        :param method:
+        :param token:
+        :return:
+        """
+        if method in self._authorizers:
+            roles = list(self._roles[method]) if method in self._roles else []
+            auth_context = self._auth_contexts.get(method, {})
+            profile = self._authorizers[method](roles, token, auth_context)
+        else:
+            profile = None
+
+        return profile
+
+    def handle(self, method: str, token: JwtToken, body: Dict[str, Any], ctx: RequestContext):
+        """
+
+        :param method:
+        :param token:
+        :param body:
+        :param ctx:
+        :return:
+        """
+
+        if method not in self._handlers:
+            raise MethodNotAllowedError(method, 'Method not allowed')
+
+        return self._handlers[method](token, body, ctx)
 
 
 class Router(object):
@@ -231,12 +258,13 @@ class Router(object):
         :return: None.
         """
 
-        route = Route(methods, path, roles)
-        route.handler = handler
-        route.authorizer = authorizer
-        route.auth_context = auth_context
+        try:
+            route = next(filter(lambda r: r.path == path, self._routes))
+        except StopIteration:
+            route = Route(path)
+            self._routes.append(route)
 
-        self._routes.append(route)
+        route.add_handler(methods, handler, authorizer, auth_context, roles)
 
     def route(self,
               method: str,
@@ -264,15 +292,12 @@ class Router(object):
                 # If the method needs authorization, run the authorizer. If the user is not
                 # authorized to invoke the endpoint, the authorizer should throw a ForbiddenError
                 # exception.
-                if route.authorizer is not None:
-                    profile = route.authorizer(route.roles, token, route.auth_context)
-                else:
-                    profile = None
+                profile = route.authorize(method, token)
 
                 # Authorization passed, so run the handler.
                 ctx = ctx.copy(path_variables=variables, profile=profile)
 
-                response = route.handler(token, body, ctx)
+                response = route.handle(method, token, body, ctx)
 
         # If no endpoint matched, raise an exception for a HTTP 404 Not Found error.
         if response is None:
