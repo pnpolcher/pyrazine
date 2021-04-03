@@ -112,11 +112,11 @@ class TestRoute(unittest.TestCase):
 
         response = router.route('GET', '/users',
                                 token=get_access_token(), body={}, ctx=RequestContext())
-        self.assertEqual(response.body['return_value'], 3)
+        self.assertEqual(response._body['return_value'], 3)
 
         response = router.route('GET', '/users/1',
                                 token=get_access_token(), body={}, ctx=RequestContext())
-        self.assertEqual(response.body['return_value'], 2)
+        self.assertEqual(response._body['return_value'], 2)
 
     def test_router_two_handlers_two_methods(self):
 
@@ -128,7 +128,7 @@ class TestRoute(unittest.TestCase):
 
         response = router.route('POST', '/',
                                 token=get_access_token(), body={}, ctx=RequestContext())
-        self.assertEqual(response.body['return_value'], 1)
+        self.assertEqual(response._body['return_value'], 1)
         response = router.route('GET', '/',
                                 token=get_access_token(), body={}, ctx=RequestContext())
-        self.assertEqual(response.body['return_value'], -1)
+        self.assertEqual(response._body['return_value'], -1)

@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import logging
 from typing import Any, Dict
 
 from pyrazine.exceptions import (
@@ -7,6 +8,9 @@ from pyrazine.exceptions import (
     MethodNotAllowedError,
 )
 from pyrazine.response import HttpResponse
+
+
+logger = logging.getLogger('DefaultErrorHandler')
 
 
 class BaseErrorHandler(ABC):
@@ -44,6 +48,7 @@ class DefaultErrorHandler(BaseErrorHandler):
 
     def get_response(self, e: Exception, ctx: Dict[str, Any]) -> HttpResponse:
         if isinstance(e, BadRequestError):
+            logger.debug('Handling BadRequestError')
             response = HttpResponse(
                 400, self.get_error_body(
                     'Bad request', {
@@ -52,6 +57,7 @@ class DefaultErrorHandler(BaseErrorHandler):
                 )
             )
         elif isinstance(e, MethodNotAllowedError):
+            logger.debug('Handling MethodNotAllowedError')
             response = HttpResponse(
                 405, self.get_error_body(
                     'Method not allowed', {
@@ -60,12 +66,14 @@ class DefaultErrorHandler(BaseErrorHandler):
                 )
             )
         elif isinstance(e, HttpForbiddenError):
+            logger.debug('Handling HttpForbiddenError')
             response = HttpResponse(
                 403, self.get_error_body(
                     'Not authorized', {}
                 )
             )
         else:
+            logger.debug('Handling unknown error')
             response = HttpResponse(
                 500, self.get_error_body(
                     'Unknown error', {}

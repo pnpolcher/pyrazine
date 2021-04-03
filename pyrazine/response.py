@@ -1,6 +1,6 @@
 import decimal
 import json
-from typing import Dict
+from typing import Any, Dict
 
 
 class HttpResponseSerializer(json.JSONEncoder):
@@ -23,9 +23,14 @@ class HttpResponse(object):
     with HTTP status code and an optional body and/or error message.
     """
 
+    _status_code: int
+    _body: Dict[str, Any]
+    _message: str
+    _enable_cors: bool
+
     def __init__(self,
                  status_code: int = 200,
-                 body: object = None,
+                 body: Dict[str, Any] = None,
                  message: str = None,
                  enable_cors: bool = True):
         """
@@ -42,10 +47,26 @@ class HttpResponse(object):
         :param enable_cors: Adds CORS headers to the response. Enabled by default.
         """
 
-        self.status_code = status_code
-        self.body = body or {}
-        self.message = message
+        self._status_code = status_code
+        self._body = body or {}
+        self._message = message
         self._enable_cors = enable_cors
+
+    @property
+    def body(self) -> Dict[str, Any]:
+        return self._body
+
+    @property
+    def enable_cors(self) -> bool:
+        return self._enable_cors
+
+    @property
+    def message(self) -> str:
+        return self._message
+
+    @property
+    def status_code(self) -> int:
+        return self._status_code
 
     @staticmethod
     def add_cors_headers(response):
@@ -62,19 +83,19 @@ class HttpResponse(object):
     def get_response_object(self) -> Dict[str, object]:
 
         response = {
-            'statusCode': self.status_code,
+            'statusCode': self._status_code,
             'headers': {}
         }
 
-        if 200 <= self.status_code < 400 and self.body is not None:
+        if self._body is not None:
             response['body'] = json.dumps(
-                self.body,
+                self._body,
                 cls=HttpResponseSerializer)
             response['headers']['content-type'] = 'application/json'
-        else:
+        elif self._status_code >= 400:
             response['body'] = json.dumps({
                 'error': {
-                    'message': self.message or 'Unknown error'
+                    'message': self._message or 'Unknown error'
                 }
             })
 

@@ -119,12 +119,16 @@ class CognitoAuthorizer(BaseAuthorizer):
             profile = self._auth_storage.get_user_profile(user_id)
             user_roles = profile.roles
         else:
-            profile = {}
             user_roles = self._auth_storage.get_user_roles(user_id)
+            profile = {
+                'roles': user_roles
+            }
 
         # Check that all needed roles are present in the set.
         logger.debug(f'User roles: {user_roles}, required roles: {roles}')
-        if not set(roles).issubset(user_roles):
+
+        #
+        if len(user_roles.intersection(roles)) == 0:
             raise HttpForbiddenError('Not authorized')
 
         return profile

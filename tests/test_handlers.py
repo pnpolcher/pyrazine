@@ -8,7 +8,7 @@ from moto import mock_xray_client, XRaySegment
 from moto.xray.mock_client import MockEmitter
 
 from pyrazine.auth.base import BaseAuthorizer
-from pyrazine.exceptions import HttpForbiddenError
+from pyrazine.exceptions import BadRequestError, HttpForbiddenError
 from pyrazine.handlers import ApiGatewayEventHandler
 from pyrazine.jwt import JwtToken
 from pyrazine.response import HttpResponse
@@ -136,6 +136,20 @@ class TestLambdaHandler(unittest.TestCase):
 
         test_body = json.loads(response['body'])
         self.assertEqual(test_body['error']['message'], 'Test error')
+
+    def test_route_exception_to_response(self):
+        handler = ApiGatewayEventHandler(trace=False)
+
+        @handler.route(path='/', methods=('GET',))
+        def test_handler(token, body, context):
+            raise BadRequestError('Invalid parameter.')
+
+        response = handler.handle_request(
+            self.TEST_HTTP_EVENT, self._get_lambda_context('TestFunction'))
+
+        self.assertEqual(response['statusCode'], 400)
+        response_body = json.loads(response['body'])
+        self.assertEqual(response_body['error']['message'], 'Invalid parameter.')
 
     def test_route_authorization_when_right_role(self):
 

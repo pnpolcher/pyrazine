@@ -208,7 +208,7 @@ class Route(object):
             auth_context = self._auth_contexts.get(method, {})
             profile = self._authorizers[method](roles, token, auth_context)
         else:
-            profile = None
+            profile = {}
 
         return profile
 
