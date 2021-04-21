@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
-from decimal import Decimal
-from typing import Any, Dict, Iterable, List, Set, Tuple, Union
+from typing import Any, Dict, Sequence, Set, Union
 
 from pyrazine.jwt import JwtToken
 
@@ -9,7 +8,7 @@ class BaseAuthorizer(ABC):
 
     @abstractmethod
     def authorizer(self,
-                   roles: Union[List[str], Tuple[str]],
+                   roles: Sequence[str],
                    token: JwtToken,
                    auth_context: Dict[str, Any] = None) -> Any:
         raise NotImplementedError('Method not implemented in abstract base class.')
@@ -31,11 +30,11 @@ class BaseUserProfile(ABC):
 
     @classmethod
     @abstractmethod
-    def from_document(cls, doc: Dict[str, Union[str, int, float, Decimal, Iterable, object]]):
+    def from_document(cls, doc: Dict[str, Union[str, Any]]):
         raise NotImplementedError('Method not implemented in abstract base class.')
 
     @abstractmethod
-    def to_document(self) -> Dict[str, Union[str, int, float, Decimal, Iterable, object]]:
+    def to_document(self) -> Dict[str, Union[str, Any]]:
         raise NotImplementedError('Method not implemented in abstract base class.')
 
 

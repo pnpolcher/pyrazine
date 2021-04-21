@@ -11,7 +11,7 @@ internally.
 """
 
 import re
-from typing import Any, Callable, ClassVar, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Callable, ClassVar, Dict, List, Optional, Sequence, Set, Tuple
 
 from pyrazine.context import RequestContext
 from pyrazine.exceptions import (
@@ -136,11 +136,11 @@ class Route(object):
         return variables
 
     def add_handler(self,
-                    methods: Union[List[str], Tuple[str]],
+                    methods: Sequence[str],
                     handler: HandlerCallable,
                     authorizer: AuthorizerCallable = None,
                     auth_context: Dict[str, Any] = None,
-                    roles: Optional[Union[List[str], Tuple[str]]] = None) -> None:
+                    roles: Optional[Sequence[str]] = None) -> None:
         """
 
         :param methods: The methods that can be used to invoke this endpoint.
@@ -236,12 +236,12 @@ class Router(object):
         self._routes = []
 
     def add_route(self,
-                  methods: Union[List[str], Tuple[str]],
+                  methods: Sequence[str],
                   path: str,
                   handler: HandlerCallable,
                   authorizer: Optional[AuthorizerCallable] = None,
                   auth_context: Optional[Dict[str, Any]] = None,
-                  roles: Optional[Union[List[str], Tuple[str]]] = None) -> None:
+                  roles: Optional[Sequence[str]] = None) -> None:
         """
         Adds a route to the routing table.
 

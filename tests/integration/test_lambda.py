@@ -13,7 +13,7 @@ logger.setLevel(logging.DEBUG)
 handler = ApiGatewayEventHandler(
     authorizer=CognitoAuthorizer(
         user_pool_id='',
-        client_id='',
+        client_ids=(),
         region='',
         auth_storage=DDBAuthStorage(
             user_table_name='',

@@ -2,7 +2,7 @@ import functools
 import json
 import logging
 import os
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Sequence
 
 from pyrazine.auth.base import BaseAuthorizer
 from pyrazine.context import RequestContext
@@ -167,11 +167,11 @@ class ApiGatewayEventHandler(object):
     def route(self,
               handler: HandlerCallable = None,
               path: str = None,
-              methods: Union[List[str], Tuple[str]] = None,
+              methods: Sequence[str] = None,
               trace: bool = None,
               authorization: bool = False,
               auth_context: Optional[Dict[str, Any]] = None,
-              roles: Union[List[str], Tuple[str]] = (),
+              roles: Sequence[str] = (),
               persist_response: bool = False):
         """
         Registers a function as a handler for a given combination of method and

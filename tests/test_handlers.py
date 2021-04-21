@@ -1,5 +1,5 @@
 import json
-from typing import Any, List, Tuple, Union
+from typing import Any, Sequence
 import unittest
 
 import aws_xray_sdk.core as xray_core
@@ -17,7 +17,7 @@ from pyrazine.typing import LambdaContext
 
 class MockAuthorizer(BaseAuthorizer):
     def authorizer(self,
-                   roles: Union[List[str], Tuple[str]],
+                   roles: Sequence[str],
                    token: JwtToken,
                    fetch_full_profile: bool = False) -> Any:
 

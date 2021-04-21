@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import cast, Optional, Dict, List, Tuple, Union, Iterable, Set
+from typing import Any, cast, Optional, Dict, Sequence, Set
 import unittest
 
 import boto3
@@ -26,7 +26,7 @@ class MockProfile(BaseUserProfile):
                  integer_value: int,
                  float_value: float,
                  decimal_value: Decimal,
-                 roles: Union[List[str], Tuple[str]]):
+                 roles: Sequence[str]):
 
         self._user_id = user_id
         self._string_field = string_value
@@ -60,7 +60,7 @@ class MockProfile(BaseUserProfile):
         return self._roles
 
     @classmethod
-    def from_document(cls, doc: Dict[str, Union[str, int, float, Decimal, Iterable, object]]):
+    def from_document(cls, doc: Dict[str, Any]):
         return MockProfile(
             str(doc['userId']),
             str(doc['stringField']),
@@ -70,7 +70,7 @@ class MockProfile(BaseUserProfile):
             list(doc['roles']),
         )
 
-    def to_document(self) -> Dict[str, Union[str, int, float, Decimal, Iterable, object]]:
+    def to_document(self) -> Dict[str, Any]:
         return {
             'userId': self._user_id,
             'stringField': self._string_field,

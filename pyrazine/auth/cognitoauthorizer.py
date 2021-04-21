@@ -2,7 +2,7 @@ import json
 import logging
 import os
 import time
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence
 
 import urllib.request
 
@@ -32,12 +32,12 @@ class CognitoAuthorizer(BaseAuthorizer):
 
     def __init__(self,
                  user_pool_id: str,
-                 client_id: str,
+                 client_ids: Sequence[str],
                  region: str,
                  auth_storage: BaseAuthStorage,
                  verify_token: bool = True):
 
-        self._client_id = client_id
+        self._client_ids = client_ids
         self._user_pool_id = user_pool_id if user_pool_id is not None else \
             os.environ.get('COGNITO_USER_POOL')
         self._region = region if region is not None else os.environ.get('COGNITO_REGION')
@@ -94,13 +94,13 @@ class CognitoAuthorizer(BaseAuthorizer):
                 'Token expired'
             )
 
-        if 'aud' in claims and claims['aud'] != self._client_id:
+        if 'aud' in claims and claims['aud'] not in self._client_ids:
             # Token was not issued for this audience.
             raise JwtVerificationFailedError(
                 JwtVerificationFailedError.INVALID_AUDIENCE,
                 'Invalid audience'
             )
-        elif 'client_id' in claims and claims['client_id'] != self._client_id:
+        elif 'client_id' in claims and claims['client_id'] not in self._client_ids:
             # The expected client ID does not match that of the token.
             raise JwtVerificationFailedError(
                 JwtVerificationFailedError.INVALID_AUDIENCE,
@@ -134,7 +134,7 @@ class CognitoAuthorizer(BaseAuthorizer):
         return profile
 
     def authorizer(self,
-                   roles: Union[List[str], Tuple[str]],
+                   roles: Sequence[str],
                    token: JwtToken,
                    auth_context: Optional[Dict[str, Any]] = None) -> Any:
 

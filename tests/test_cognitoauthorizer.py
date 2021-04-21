@@ -35,7 +35,7 @@ class TestCognitoAuthorizer(unittest.TestCase):
 
         self._authorizer = CognitoAuthorizer(
             'user_pool_id',
-            'client_id',
+            ('client_id',),
             'eu-west-1',
             self._auth_storage,
             False,
