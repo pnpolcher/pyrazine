@@ -28,6 +28,10 @@ logger.setLevel(logger_level)
 
 
 class ApiGatewayEventHandler(object):
+    """
+    Implements an event handler for HTTP calls made through Amazon API Gateway, and routes them
+    to the appropriate endpoint, if one has been defined.
+    """
 
     _error_handler: BaseErrorHandler
     _router: Router
