@@ -13,15 +13,19 @@ class HttpEvent(object):
     """
     Models the data found in the event passed to the Lambda function.
     """
+    _cookies: Dict[str, str]
+    _headers: Dict[str, str]
+    _raw_path: str
+    _raw_query_string: str
 
     def __init__(self, event):
 
         self._version = event.get('version')
         self.route_key = event.get('routeKey')
-        self.raw_path = event.get('rawPath')
-        self.raw_query_string = event.get('rawQueryString')
-        self.headers = event.get('headers')
-        self.cookies = event.get('cookies')
+        self._raw_path = event.get('rawPath')
+        self._raw_query_string = event.get('rawQueryString')
+        self._headers = event.get('headers')
+        self._cookies = event.get('cookies')
 
         self.request_context = event.get('requestContext')
         if self.request_context is None:
@@ -48,14 +52,30 @@ class HttpEvent(object):
             self.jwt = None
 
     def _get_jwt_from_headers(self):
-        if self.headers is not None and 'authorization' in self.headers:
-            m = re.match('[Bb]earer\\s+(.*)', self.headers['authorization'])
+        if self._headers is not None and 'authorization' in self._headers:
+            m = re.match('[Bb]earer\\s+(.*)', self._headers['authorization'])
             token = m[1].strip() if m is not None and len(m.groups()) == 1 else None
         else:
             logger.debug('No authorization header found.')
             token = None
 
         return token
+
+    @property
+    def cookies(self) -> Dict[str, str]:
+        return self._cookies
+
+    @property
+    def headers(self) -> Dict[str, str]:
+        return self._headers
+
+    @property
+    def raw_path(self) -> str:
+        return self._raw_path
+
+    @property
+    def raw_query_string(self) -> str:
+        return self._raw_query_string
 
     @property
     def query_string(self) -> Dict[Any, list]:
