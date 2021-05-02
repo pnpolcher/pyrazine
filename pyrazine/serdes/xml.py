@@ -8,5 +8,5 @@ class XmlDeserializer(BaseDeserializer):
     def create(cls, parameters: Dict[str, Any]):
         pass
 
-    def deserialize(self, data: Any):
+    def deserialize(self, data: Any) -> Any:
         pass

@@ -10,5 +10,5 @@ class BaseDeserializer(ABC):
         raise NotImplementedError('Method not implemented in abstract base class.')
 
     @abstractmethod
-    def deserialize(self, data: Any):
+    def deserialize(self, data: Any) -> Any:
         raise NotImplementedError('Method not implemented in abstract base class.')
