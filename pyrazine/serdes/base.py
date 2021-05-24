@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 
 class BaseDeserializer(ABC):
@@ -10,5 +10,5 @@ class BaseDeserializer(ABC):
         raise NotImplementedError('Method not implemented in abstract base class.')
 
     @abstractmethod
-    def deserialize(self, data: Any) -> Any:
+    def deserialize(self, data: Any, parameters: Optional[Dict[str, Any]] = None) -> Any:
         raise NotImplementedError('Method not implemented in abstract base class.')

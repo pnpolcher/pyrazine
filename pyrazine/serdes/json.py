@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from pyrazine.serdes import BaseDeserializer
 
@@ -17,7 +17,10 @@ class JsonDeserializer(BaseDeserializer):
         json_ld = variant is not None and variant == 'ld'
         return JsonDeserializer(json_ld=json_ld)
 
-    def deserialize(self, data: Any) -> Any:
+    def deserialize(self, data: Any, parameters: Optional[Dict[str, Any]] = None) -> Any:
+        if data is None:
+            return {}
+
         if not isinstance(data, str):
             error_msg = "JsonDeserializer needs a string as input to the deserialize method."
             logger.error(error_msg)

@@ -13,17 +13,17 @@ internally.
 import re
 from typing import Any, Callable, ClassVar, Dict, List, Optional, Sequence, Set, Tuple
 
-from pyrazine.context import RequestContext
 from pyrazine.exceptions import (
     HttpNotFoundError,
     MethodNotAllowedError,
 )
 from pyrazine.jwt import JwtToken
+from pyrazine.requests.httprequest import HttpRequest
 from pyrazine.response import HttpResponse
 
 
 AuthorizerCallable = Callable[[List[str], JwtToken, Optional[Dict[str, Any]]], Any]
-HandlerCallable = Callable[[JwtToken, Dict[str, Any], RequestContext], HttpResponse]
+HandlerCallable = Callable[[JwtToken, HttpRequest], HttpResponse]
 
 
 class Route(object):
@@ -212,7 +212,7 @@ class Route(object):
 
         return profile
 
-    def handle(self, method: str, token: JwtToken, body: Dict[str, Any], ctx: RequestContext):
+    def handle(self, method: str, token: JwtToken, request: HttpRequest):
         """
 
         :param method:
@@ -225,7 +225,7 @@ class Route(object):
         if method not in self._handlers:
             raise MethodNotAllowedError(method, 'Method not allowed')
 
-        return self._handlers[method](token, body, ctx)
+        return self._handlers[method](token, request)
 
 
 class Router(object):
@@ -270,16 +270,15 @@ class Router(object):
               method: str,
               path: str,
               token: JwtToken,
-              body: Dict[str, Any],
-              ctx: RequestContext) -> HttpResponse:
+              request: HttpRequest) -> HttpResponse:
         """
         Route the request to the right handler.
 
         :param method: The HTTP method with which the endpoint was invoked.
         :param path: The path to the endpoint.
         :param token: The JWT token passed to the endpoint, if any.
-        :param body: The contents of the HTTP request body.
-        :param ctx: The local context of the request.
+        :param request: An object of type HTTPRequest that contains the data
+        passed to the Lambda function.
         :return: A HttpResponse object with the result of the operation.
         """
 
@@ -295,9 +294,10 @@ class Router(object):
                 profile = route.authorize(method, token)
 
                 # Authorization passed, so run the handler.
-                ctx = ctx.copy(path_variables=variables, profile=profile)
+                ctx = request.context.copy(profile=profile)
+                request = request.copy(path_variables=variables, context=ctx)
 
-                response = route.handle(method, token, body, ctx)
+                response = route.handle(method, token, request)
 
         # If no endpoint matched, raise an exception for a HTTP 404 Not Found error.
         if response is None:

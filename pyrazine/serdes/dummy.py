@@ -1,6 +1,6 @@
 from base64 import b64decode
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from pyrazine.serdes import BaseDeserializer
 
@@ -18,7 +18,10 @@ class DummyDeserializer(BaseDeserializer):
             raise ValueError('DummyDeserializer expects an is_base64_encoded boolean parameter.')
         return DummyDeserializer(is_base64_encoded=is_base64_encoded)
 
-    def deserialize(self, data: Any) -> Any:
+    def deserialize(self, data: Any, parameters: Optional[Dict[str, Any]] = None) -> Any:
+        if data is None:
+            return ''
+
         if not isinstance(data, str):
             error_msg = 'DummyDeserializer expects a string parameter as data.'
             logger.error(error_msg)

@@ -10,8 +10,11 @@ from pyrazine.errorhandling import BaseErrorHandler, DefaultErrorHandler
 from pyrazine.events import HttpEvent
 from pyrazine.exceptions import BadRequestError
 from pyrazine.jwt import JwtToken
+from pyrazine.requests.httprequest import HttpRequest
 from pyrazine.response import HttpResponse
 from pyrazine.routing import Router, HandlerCallable
+from pyrazine.serdes import BaseDeserializer
+from pyrazine.serdes.auto import HttpRequestAutoDeserializer
 from pyrazine.tracer import Tracer
 from pyrazine.typing import LambdaContext
 
@@ -35,9 +38,12 @@ class ApiGatewayEventHandler(object):
 
     _error_handler: BaseErrorHandler
     _router: Router
+    _serdes: BaseDeserializer
 
     def __init__(self,
                  service_name: str = 'unknown_service',
+                 serdes: BaseDeserializer.__class__ = HttpRequestAutoDeserializer,
+                 serdes_parameters: Dict[str, Any] = None,
                  authorizer: Any = None,
                  error_handler: Optional[BaseErrorHandler] = None,
                  recorder: aws_xray_sdk.core.xray_recorder = None,
@@ -59,6 +65,9 @@ class ApiGatewayEventHandler(object):
         self._error_handler = error_handler or DefaultErrorHandler()
         self._router = Router()
 
+        serdes_params = serdes_parameters or {}
+        self._serdes = serdes.create(serdes_params)
+
         self._authorizer = authorizer
         self._service_name = service_name
         self._trace = trace
@@ -72,24 +81,17 @@ class ApiGatewayEventHandler(object):
     def authorizer(self):
         return self._authorizer
 
-    @staticmethod
-    def _get_body_object(http_event: HttpEvent) -> Dict[str, object]:
+    def _get_body_object(self, http_event: HttpEvent) -> Any:
 
-        # TODO: Handle binary payloads.
-
-        # It's okay to have a «bodyless» request, maybe the endpoint does not
-        # require any data. Just make sure to return an empty object.
-        if http_event.body is None:
-            return {}
-
-        # If there is actually something, let's make sure it's valid data.
-        # Only JSON is supported at the moment.
         try:
-            result = json.loads(http_event.body)
-        except json.decoder.JSONDecodeError:
-            raise BadRequestError('Malformed JSON input')
+            payload = self._serdes.deserialize(http_event.body, {
+                'event': http_event
+            })
+        except Exception as e:
+            logger.exception(e)
+            raise BadRequestError('Failed to deserialize payload.')
 
-        return result
+        return payload
 
     def _handle_event(self, event: HttpEvent, path: str) -> HttpResponse:
 
@@ -101,13 +103,16 @@ class ApiGatewayEventHandler(object):
             return HttpResponse.build_success_response()
 
         try:
-            body = self._get_body_object(event)
-            context = RequestContext(
+            payload = self._get_body_object(event)
+            context = RequestContext()
+            request = HttpRequest(
+                payload,
                 cookies=event.cookies,
                 headers=event.headers,
                 query_string=event.query_string,
+                context=context,
             )
-            response = self._router.route(method, path, event.jwt, body, context)
+            response = self._router.route(method, path, event.jwt, request)
         except Exception as e:
             logger.exception(e)
             response = self._error_handler.get_response(e, {})
@@ -253,7 +258,7 @@ class ApiGatewayEventHandler(object):
         method = http_event.http_ctx_method
         path = http_event.path
 
-        # If either method or path have not been sent in the event, do not assume
+        # If either method or path are missing from the event, do not assume
         # anything and just fail with a HTTP 400 code.
         if method is None or path is None:
             method_present = 'not' if method is None else ''

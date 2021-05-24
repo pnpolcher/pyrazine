@@ -1,6 +1,6 @@
 from base64 import b64decode
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from pyrazine.serdes import BaseDeserializer
 
@@ -20,7 +20,7 @@ class DefaultBinaryDeserializer(BaseDeserializer):
         mime_type = parameters.get('mime_type', 'application/octet-stream')
         return DefaultBinaryDeserializer(mime_type=mime_type)
 
-    def deserialize(self, data: Any) -> Any:
+    def deserialize(self, data: Any, parameters: Optional[Dict[str, Any]] = None) -> Any:
         if not isinstance(data, str):
             error_message = "DefaultBinaryDeserializer expects a Base64 encoded binary payload " +\
                             "as argument for the deserialize method"
@@ -35,5 +35,5 @@ class CompressedBinaryDeserializer(BaseDeserializer):
     def create(cls, parameters: Dict[str, Any]):
         pass
 
-    def deserialize(self, data: Any) -> Any:
+    def deserialize(self, data: Any, parameters: Optional[Dict[str, Any]] = None) -> Any:
         pass

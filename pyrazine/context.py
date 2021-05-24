@@ -1,71 +1,34 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 
 class RequestContext(object):
 
-    _cookies: List[str]
-    _headers: Dict[str, str]
-    _path_variables: Dict[str, Any]
+    _context_vars: Dict[str, Any]
     _profile: Any
-    _query_string: Dict[Any, list]
 
     def __init__(self,
-                 cookies: Optional[List[str]] = None,
-                 headers: Optional[Dict[str, str]] = None,
-                 query_string: Optional[Dict[Any, list]] = None,
-                 path_variables: Optional[Dict[str, Any]] = None,
+                 context_vars: Optional[Dict[str, Any]] = None,
                  profile: Optional[Any] = None):
 
-        self._cookies = cookies or []
-        self._headers = headers or {}
-        self._path_variables = path_variables or {}
-        self._profile = profile
-        self._query_string = query_string or {}
+        self._context_vars = context_vars or {}
+        self._profile = profile or None
 
     @property
-    def cookies(self) -> List[str]:
-        return self._cookies
-
-    @property
-    def headers(self) -> Dict[str, str]:
-        return self._headers
-
-    @property
-    def path_variables(self) -> Dict[str, Any]:
-        return self._path_variables
+    def context_vars(self) -> Dict[str, Any]:
+        return self._context_vars
 
     @property
     def profile(self) -> Any:
         return self._profile
 
-    @property
-    def query_string(self) -> Dict[Any, list]:
-        return self._query_string
-
     def copy(self,
-             cookies: Optional[Dict[str, str]] = None,
-             headers: Optional[Dict[str, str]] = None,
-             path_variables: Optional[Dict[str, Any]] = None,
-             profile: Optional[Any] = None,
-             query_string: Optional[Dict[Any, list]] = None):
+             context_vars: Optional[Dict[str, Any]] = None,
+             profile: Optional[Any] = None):
 
-        merged_cookies = cookies or []
-#        merged_cookies.update(self.cookies)
-        merged_cookies = merged_cookies + self.cookies
-
-        merged_headers = headers or {}
-        merged_headers.update(self.headers)
-
-        merged_query_string = query_string or {}
-        merged_query_string.update(self.query_string)
-
-        pathvars = path_variables or {}
-        pathvars.update(self.path_variables)
+        merged_context_vars = context_vars or {}
+        merged_context_vars.update(self._context_vars)
 
         return self.__class__(
-            cookies=merged_cookies,
-            headers=merged_headers,
-            path_variables=pathvars,
-            profile=profile,
-            query_string=merged_query_string
+            context_vars=merged_context_vars,
+            profile=profile
         )

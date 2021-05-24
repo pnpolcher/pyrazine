@@ -1,5 +1,5 @@
 import logging
-from typing import Any, ClassVar, Dict
+from typing import Any, ClassVar, Dict, Optional
 
 from pyrazine.events import HttpEvent
 from pyrazine.serdes import (
@@ -84,30 +84,50 @@ class HttpRequestAutoDeserializer(BaseDeserializer):
         },
     }
 
-    _deserializer_instance: BaseDeserializer
+    _deserializer_instance: Optional[BaseDeserializer]
+    _current_content_type: str
 
-    def __init__(self, event: HttpEvent):
-        self._create_deserializer(event)
+    def __init__(self):
+        self._deserializer_instance = None
+        self._current_content_type = ''
 
-    def _create_deserializer(self, event: HttpEvent):
-        content_type = event.headers.get('content-type', None)
-        if content_type is not None:
-            self._deserializer_instance = self._create_from_mime_type(content_type, event)
+    def _create_deserializer(self, event: Optional[HttpEvent]) -> None:
+        """
+        Creates a new deserializer if a previous one matching the specified content
+        type does not previously exist.
+
+        This method will try to infer the right deserialize for the content type
+        passed in the HTTP event. If no HTTP event is passed, it will create a
+        dummy serializer that considers the content to be plain text.
+
+        :param event: An HTTP event passed when the deserializer is invoked.
+        :return: None
+        """
+        if event is None:
+            self._deserializer_instance = self._get_default_deserializer(False)
         else:
-            self._deserializer_instance = self._get_default_deserializer(event)
+            content_type = event.headers.get('content-type', None)
+            if content_type is not None:
+                if content_type.strip().lower() != self._current_content_type:
+                    self._deserializer_instance =\
+                        self._create_from_mime_type(content_type, event)
+            else:
+                self._deserializer_instance =\
+                    self._get_default_deserializer(event.is_base64_encoded)
 
     @staticmethod
-    def _get_default_deserializer(event: HttpEvent) -> BaseDeserializer:
+    def _get_default_deserializer(is_base64_encoded: bool) -> BaseDeserializer:
         """
         Creates a default deserializer when the data format cannot be inferred from the
         MIME type.
-        :param event: The Lambda HTTP event.
+        :param is_base64_encoded: True, if the data is Base64 encoded data.
         :return: An instance of the default deserializer.
         """
+
         # Cannot infer the type of the data sent, so we'll simply discriminate between
         # base64-encoded and plain text data.
         return DummyDeserializer.create({
-            'is_base64_encoded': event.is_base64_encoded
+            'is_base64_encoded': is_base64_encoded
         })
 
     def _create_from_mime_type(self, mime_type: str, event: HttpEvent) -> BaseDeserializer:
@@ -124,7 +144,7 @@ class HttpRequestAutoDeserializer(BaseDeserializer):
         if deserializer_class is None:
             logger.warning(f'Deserializer dictionary has no deserializer class for MIME type ' +
                            '{mime_type}! Falling back to default.')
-            return self._get_default_deserializer(event)
+            return self._get_default_deserializer(event.is_base64_encoded)
         return deserializer_class.create(deserializer_entry.get('parameters', {}))
 
     @property
@@ -133,10 +153,9 @@ class HttpRequestAutoDeserializer(BaseDeserializer):
 
     @classmethod
     def create(cls, parameters: Dict[str, Any]):
-        event = parameters.get('event', None)
-        if event is None:
-            raise ValueError('Missing event parameter for auto deserializer.')
-        return HttpRequestAutoDeserializer(event)
+        return HttpRequestAutoDeserializer()
 
-    def deserialize(self, data: Any):
+    def deserialize(self, data: Any, parameters: Optional[Dict[str, Any]] = None) -> Any:
+        event = parameters.get('event', None)
+        self._create_deserializer(event)
         return self._deserializer_instance.deserialize(data)
