@@ -1,10 +1,18 @@
+import base64
+import json
 import time
-from typing import Dict
+from typing import Any, Dict
 
 from jose import jwt
 
+from pyrazine.events import HttpEvent
 
 JWT_SECRET = 'pyrazine'
+TEST_BINARY_PAYLOAD = "Test binary payload".encode('utf-8')
+TEST_EVENT_FILE = 'data/http_event.json'
+TEST_JPEG_PAYLOAD_FILE = 'payload.jpg'
+TEST_JSON_PAYLOAD = {'test': 'payload'}
+TEST_PNG_PAYLOAD_FILE = 'payload.png'
 
 
 def get_access_token() -> (Dict[str, object], str):
@@ -19,3 +27,49 @@ def get_access_token() -> (Dict[str, object], str):
 
     token = jwt.encode(claims, JWT_SECRET, algorithm=jwt.ALGORITHMS.HS256)
     return claims, token
+
+
+def _get_event_epoch() -> int:
+    return int(time.time() / 1000.0)
+
+
+def _read_json_event(filename: str) -> Dict[str, Any]:
+    with open(filename, 'r') as f:
+        event = json.load(f)
+
+    event['requestContext']['timeEpoch'] = _get_event_epoch()
+    return event
+
+
+def get_binary_payload_event() -> HttpEvent:
+    ev = _read_json_event(TEST_EVENT_FILE)
+    ev['body'] = base64.b64encode(TEST_BINARY_PAYLOAD).decode('utf-8')
+    ev['isBase64Encoded'] = True
+    ev['headers']['content-type'] = 'application/octet-stream'
+    return HttpEvent(ev)
+
+
+def get_jpeg_payload_event() -> HttpEvent:
+    ev = _read_json_event(TEST_EVENT_FILE)
+
+    with open(TEST_JPEG_PAYLOAD_FILE, 'rb') as jpeg_file:
+        ev['body'] = base64.b64encode(jpeg_file.read())
+    ev['isBase64Encoded'] = True
+    ev['headers']['content-type'] = 'image/jpeg'
+    return HttpEvent(ev)
+
+
+def get_json_payload_event() -> HttpEvent:
+    ev = _read_json_event(TEST_EVENT_FILE)
+    ev['body'] = json.dumps(TEST_JSON_PAYLOAD)
+    ev['isBase64Encoded'] = False
+    ev['headers']['content-type'] = 'application/json'
+    return HttpEvent(ev)
+
+
+def get_png_payload_event() -> HttpEvent:
+    ev = _read_json_event(TEST_EVENT_FILE)
+    with open(TEST_PNG_PAYLOAD_FILE, 'rb') as png_file:
+        ev['body'] = base64.b64encode(png_file.read())
+    ev['isBase64Encoded'] = True
+    return HttpEvent(ev)

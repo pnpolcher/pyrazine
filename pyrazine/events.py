@@ -13,8 +13,10 @@ class HttpEvent(object):
     """
     Models the data found in the event passed to the Lambda function.
     """
+    _body: str
     _cookies: Dict[str, str]
     _headers: Dict[str, str]
+    _is_base64_encoded: bool
     _raw_path: str
     _raw_query_string: str
 
@@ -36,8 +38,8 @@ class HttpEvent(object):
             raise ValueError('No HTTP context information.')
 
         self.path_parameters = event.get('pathParameters') or {}
-        self.body = event.get('body')
-        self.is_base64_encoded = event.get('isBase64Encoded')
+        self._body = event.get('body')
+        self._is_base64_encoded = event.get('isBase64Encoded')
 
         self.authorizer = self.request_context.get('authorizer')
         if self.authorizer is not None and 'jwt' in self.authorizer:
@@ -62,12 +64,20 @@ class HttpEvent(object):
         return token
 
     @property
+    def body(self) -> str:
+        return self._body
+
+    @property
     def cookies(self) -> Dict[str, str]:
         return self._cookies
 
     @property
     def headers(self) -> Dict[str, str]:
         return self._headers
+
+    @property
+    def is_base64_encoded(self) -> bool:
+        return self._is_base64_encoded
 
     @property
     def raw_path(self) -> str:
