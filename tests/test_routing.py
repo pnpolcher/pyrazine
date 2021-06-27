@@ -110,7 +110,7 @@ class TestRoute(unittest.TestCase):
             self._mock_success_authorizer
         )
 
-        request = HttpRequest({}, jwt_token=get_access_token())
+        request = HttpRequest('GET', {}, jwt_token=get_access_token())
 
         response = router.route('GET', '/users', request)
         self.assertEqual(response._body['return_value'], 3)
@@ -126,9 +126,10 @@ class TestRoute(unittest.TestCase):
         router.add_route(['GET'], '/', partial(self._mock_handler, return_value=-1))
         router.add_route(['POST'], '/', partial(self._mock_handler, return_value=1))
 
-        request = HttpRequest({}, jwt_token=get_access_token())
-
+        request = HttpRequest('POST', {}, jwt_token=get_access_token())
         response = router.route('POST', '/', request)
         self.assertEqual(response._body['return_value'], 1)
+
+        request = HttpRequest('GET', {}, jwt_token=get_access_token())
         response = router.route('GET', '/', request)
         self.assertEqual(response._body['return_value'], -1)

@@ -1,10 +1,7 @@
 import logging
 
-from typing import Dict
-
 from pyrazine.auth import CognitoAuthorizer, DDBAuthStorage, SimpleUserProfile
 from pyrazine.handlers import ApiGatewayEventHandler
-from pyrazine.jwt import JwtToken
 from pyrazine.requests.httprequest import HttpRequest
 from pyrazine.response import HttpResponse
 

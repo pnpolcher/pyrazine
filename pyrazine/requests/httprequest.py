@@ -12,8 +12,10 @@ class HttpRequest(object):
     _path_variables: Dict[str, Any]
     _payload: Any
     _query_string: Dict[Any, list]
+    _method: str
 
     def __init__(self,
+                 method: str,
                  payload: Any,
                  cookies: Optional[Dict[str, str]] = None,
                  headers: Optional[Dict[str, str]] = None,
@@ -22,6 +24,7 @@ class HttpRequest(object):
                  context: Optional[RequestContext] = None,
                  jwt_token: Optional[JwtToken] = None):
 
+        self._method = method
         self._payload = payload
         self._cookies = cookies or []
         self._headers = headers or {}
@@ -47,6 +50,10 @@ class HttpRequest(object):
         return self._jwt_token
 
     @property
+    def method(self) -> str:
+        return self._method
+
+    @property
     def path_variables(self) -> Dict[str, Any]:
         return self._path_variables
 
@@ -65,6 +72,7 @@ class HttpRequest(object):
              context: Optional[RequestContext] = None,
              query_string: Optional[Dict[Any, list]] = None,
              jwt_token: Optional[JwtToken] = None,
+             method: Optional[str] = None,
              payload: Optional[Any] = None):
 
         merged_cookies = cookies or {}
@@ -80,6 +88,7 @@ class HttpRequest(object):
         pathvars.update(self._path_variables)
 
         return self.__class__(
+            method or self.method,
             payload or self.payload,
             cookies=merged_cookies,
             headers=merged_headers,

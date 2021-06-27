@@ -104,6 +104,7 @@ class ApiGatewayEventHandler(object):
             payload = self._get_body_object(event)
             context = RequestContext()
             request = HttpRequest(
+                method,
                 payload,
                 cookies=event.cookies,
                 headers=event.headers,
