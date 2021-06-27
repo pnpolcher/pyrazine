@@ -1,24 +1,25 @@
 import os
-from typing import Dict
 
-from pyrazine.config import BaseConfigurationReader
+from pyrazine.config.base import BaseConfigurationMixin
 
 
-class EnvironmentConfigurationReader(BaseConfigurationReader):
+class EnvironmentConfigurationMixin(BaseConfigurationMixin):
     """
-    Implements a configuration reader that takes prefixed environment variables
+    Implements a configuration mixin that takes prefixed environment variables
     (default prefix is APP), normalizes the key, and stores the data in a dictionary.
     """
 
-    _prefix: str
+    _ecmixin_prefix: str
 
     def __init__(self, prefix: str = 'app'):
-        self._prefix = prefix.lower()
+        super(EnvironmentConfigurationMixin, self).__init__()
+        self._registry.append(self)
+        self._ecmixin_prefix = prefix.lower()
 
-    def read(self) -> Dict[str, str]:
-        prefix_len = len(self._prefix) + 1
+    def initialize(self):
+        prefix_len = len(self._ecmixin_prefix) + 1
         return {
             var_name[prefix_len:].replace('_', '-').lower(): value
             for var_name, value in os.environ.items()
-            if var_name.lower().startswith(f'{self._prefix}_')
+            if var_name.lower().startswith(f'{self._ecmixin_prefix}_')
         }

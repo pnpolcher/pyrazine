@@ -1,12 +1,17 @@
 from abc import ABC, abstractmethod
 from decimal import Decimal
-from typing import Any, Dict, Set
+from typing import Any, Dict, List, Set
 
 
-class BaseConfigurationReader(ABC):
+class BaseConfigurationMixin(ABC):
+
+    _registry: List[Any]
+
+    def __init__(self):
+        self._registry = []
 
     @abstractmethod
-    def read(self) -> Dict[str, str]:
+    def initialize(self):
         raise NotImplementedError('Method not implemented in abstract base class.')
 
 
