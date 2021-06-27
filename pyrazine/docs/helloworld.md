@@ -13,8 +13,10 @@ dive deep into each of these objects once we need to use them.
 
 ```python
 from pyrazine.auth import CognitoAuthorizer, DDBAuthStorage
+from pyrazine.auth.simpleuserprofile import SimpleUserProfile
 from pyrazine.handlers import ApiGatewayEventHandler
 from pyrazine.jwt import JwtToken
+from pyrazine.requests import HttpRequest
 from pyrazine.response import HttpResponse
 ```
 
@@ -56,7 +58,7 @@ The handler for our Hello World application is quite simple.
 
 ```python
 @handler.route(path='/')
-def hello_world(token: JwtToken, body: Dict[str, Any], context: RequestContext):
+def hello_world(request: HttpRequest):
     return HttpResponse(200, {'result': 'Hello, world!'})
 ```
 

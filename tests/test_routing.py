@@ -4,7 +4,7 @@ from typing import Any, ClassVar, Dict, List, Optional
 import unittest
 
 from pyrazine.exceptions import MethodNotAllowedError
-from pyrazine.requests.httprequest import HttpRequest
+from pyrazine.requests import HttpRequest
 from pyrazine.response import HttpResponse
 from pyrazine.routing import Route, Router
 from pyrazine.jwt import JwtToken
