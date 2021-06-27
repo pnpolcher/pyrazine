@@ -11,6 +11,7 @@ from pyrazine.auth.base import BaseAuthorizer
 from pyrazine.exceptions import BadRequestError, HttpForbiddenError
 from pyrazine.handlers import ApiGatewayEventHandler
 from pyrazine.jwt import JwtToken
+from pyrazine.requests.httprequest import HttpRequest
 from pyrazine.response import HttpResponse
 from pyrazine.typing import LambdaContext
 
@@ -79,7 +80,7 @@ class TestLambdaHandler(unittest.TestCase):
         handler = ApiGatewayEventHandler()
 
         @handler.route(path='/', methods=('GET',))
-        def test_method(token, body, context):
+        def test_method(request: HttpRequest):
             return HttpResponse(200)
 
         # Call the function associated with the route.
@@ -104,7 +105,7 @@ class TestLambdaHandler(unittest.TestCase):
         handler = ApiGatewayEventHandler(trace=False)
 
         @handler.route(path='/', methods=('GET',))
-        def test_method(token, body, context):
+        def test_method(request: HttpRequest):
             return HttpResponse(200, {'test_key': 'test_value'})
 
         # Call the function associated with the route.
@@ -125,7 +126,7 @@ class TestLambdaHandler(unittest.TestCase):
         handler = ApiGatewayEventHandler(trace=False)
 
         @handler.route(path='/', methods=('GET',))
-        def test_handler(token, body, context):
+        def test_handler(request: HttpRequest):
             return HttpResponse(500, message='Test error')
 
         # Call the function associated with the route.
@@ -141,7 +142,7 @@ class TestLambdaHandler(unittest.TestCase):
         handler = ApiGatewayEventHandler(trace=False)
 
         @handler.route(path='/', methods=('GET',))
-        def test_handler(token, body, context):
+        def test_handler(request: HttpRequest):
             raise BadRequestError('Invalid parameter.')
 
         response = handler.handle_request(
@@ -156,7 +157,7 @@ class TestLambdaHandler(unittest.TestCase):
         handler = ApiGatewayEventHandler(trace=False, authorizer=MockAuthorizer())
 
         @handler.route(path='/', methods=('GET', ), authorization=True, roles=['right_role'])
-        def test_handler(token, body, context):
+        def test_handler(request: HttpRequest):
             return HttpResponse()
 
         response = handler.handle_request(
@@ -169,7 +170,7 @@ class TestLambdaHandler(unittest.TestCase):
         handler = ApiGatewayEventHandler(trace=False, authorizer=MockAuthorizer())
 
         @handler.route(path='/', methods=('GET', ), authorization=True, roles=['wrong_role'])
-        def test_handler(token, body, context):
+        def test_handler(request: HttpRequest):
             return HttpResponse()
 
         response = handler.handle_request(

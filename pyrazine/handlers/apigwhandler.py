@@ -8,7 +8,6 @@ from pyrazine.context import RequestContext
 from pyrazine.errorhandling import BaseErrorHandler, DefaultErrorHandler
 from pyrazine.events import HttpEvent
 from pyrazine.exceptions import BadRequestError
-from pyrazine.jwt import JwtToken
 from pyrazine.requests.httprequest import HttpRequest
 from pyrazine.response import HttpResponse
 from pyrazine.routing import Router, HandlerCallable
@@ -110,8 +109,9 @@ class ApiGatewayEventHandler(object):
                 headers=event.headers,
                 query_string=event.query_string,
                 context=context,
+                jwt_token=event.jwt,
             )
-            response = self._router.route(method, path, event.jwt, request)
+            response = self._router.route(method, path, request)
         except Exception as e:
             logger.exception(e)
             response = self._error_handler.get_response(e, {})
@@ -136,10 +136,7 @@ class ApiGatewayEventHandler(object):
         handler_name = handler.__name__
 
         @functools.wraps(handler)
-        def wrapper(
-                token: JwtToken,
-                body: Dict[str, object],
-                context: RequestContext) -> HttpResponse:
+        def wrapper(request: HttpRequest) -> HttpResponse:
 
             logger.debug("Tracing handler executed")
             with self._tracer.in_subsegment(name=f"## {handler_name}") as subsegment:
@@ -151,7 +148,7 @@ class ApiGatewayEventHandler(object):
 
                 try:
                     logger.debug(f'Starting handler {handler_name}')
-                    response = handler(token, body, context)
+                    response = handler(request)
                     logger.debug(f'Returned successfully from handler {handler_name}')
 
                     self._tracer.trace_route(

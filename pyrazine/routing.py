@@ -23,7 +23,7 @@ from pyrazine.response import HttpResponse
 
 
 AuthorizerCallable = Callable[[List[str], JwtToken, Optional[Dict[str, Any]]], Any]
-HandlerCallable = Callable[[JwtToken, HttpRequest], HttpResponse]
+HandlerCallable = Callable[[HttpRequest], HttpResponse]
 
 
 class Route(object):
@@ -212,20 +212,18 @@ class Route(object):
 
         return profile
 
-    def handle(self, method: str, token: JwtToken, request: HttpRequest):
+    def handle(self, method: str, request: HttpRequest):
         """
 
         :param method:
-        :param token:
-        :param body:
-        :param ctx:
+        :param request:
         :return:
         """
 
         if method not in self._handlers:
             raise MethodNotAllowedError(method, 'Method not allowed')
 
-        return self._handlers[method](token, request)
+        return self._handlers[method](request)
 
 
 class Router(object):
@@ -269,14 +267,12 @@ class Router(object):
     def route(self,
               method: str,
               path: str,
-              token: JwtToken,
               request: HttpRequest) -> HttpResponse:
         """
         Route the request to the right handler.
 
         :param method: The HTTP method with which the endpoint was invoked.
         :param path: The path to the endpoint.
-        :param token: The JWT token passed to the endpoint, if any.
         :param request: An object of type HTTPRequest that contains the data
         passed to the Lambda function.
         :return: A HttpResponse object with the result of the operation.
@@ -291,13 +287,13 @@ class Router(object):
                 # If the method needs authorization, run the authorizer. If the user is not
                 # authorized to invoke the endpoint, the authorizer should throw a ForbiddenError
                 # exception.
-                profile = route.authorize(method, token)
+                profile = route.authorize(method, request.jwt_token)
 
                 # Authorization passed, so run the handler.
                 ctx = request.context.copy(profile=profile)
                 request = request.copy(path_variables=variables, context=ctx)
 
-                response = route.handle(method, token, request)
+                response = route.handle(method, request)
 
         # If no endpoint matched, raise an exception for a HTTP 404 Not Found error.
         if response is None:

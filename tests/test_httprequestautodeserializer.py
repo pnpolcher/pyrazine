@@ -9,7 +9,8 @@ class TestHttpRequestAutoDeserializer(unittest.TestCase):
 
     _deserializer: Optional[HttpRequestAutoDeserializer]
 
-    def _get_md5_hexdigest(self, b: bytes) -> str:
+    @staticmethod
+    def _get_md5_hexdigest(b: bytes) -> str:
 
         from hashlib import md5
 

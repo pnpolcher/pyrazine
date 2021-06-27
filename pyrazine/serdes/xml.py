@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Any, Dict, Optional
 
 from pyrazine.serdes import BaseDeserializer
 
@@ -8,5 +8,5 @@ class XmlDeserializer(BaseDeserializer):
     def create(cls, parameters: Dict[str, Any]):
         pass
 
-    def deserialize(self, data: Any) -> Any:
+    def deserialize(self, data: Any, parameters: Optional[Dict[str, Any]] = None) -> Any:
         pass

@@ -65,7 +65,7 @@ def get_items(token: JwtToken, body: Dict[str, Any], context: RequestContext):
 
 ```python
 @handler.route(path='/notes', methods=('POST', 'PUT'), roles=('admin', 'user'))
-def put_items(token: JwtToken, body: Dict[str, Any], context: RequestContext)
+def put_items(token: JwtToken, body: Dict[str, Any], context: RequestContext):
     pass
 ```
 

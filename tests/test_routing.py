@@ -3,8 +3,8 @@ import itertools
 from typing import Any, ClassVar, Dict, List, Optional
 import unittest
 
-from pyrazine.context import RequestContext
 from pyrazine.exceptions import MethodNotAllowedError
+from pyrazine.requests.httprequest import HttpRequest
 from pyrazine.response import HttpResponse
 from pyrazine.routing import Route, Router
 from pyrazine.jwt import JwtToken
@@ -26,7 +26,7 @@ class TestRoute(unittest.TestCase):
         return True
 
     @staticmethod
-    def _mock_handler(token, body, ctx, return_value: int):
+    def _mock_handler(request: HttpRequest, return_value: int) -> HttpResponse:
         return HttpResponse(200, {'return_value': return_value})
 
     def test_route_methods(self):
@@ -110,12 +110,12 @@ class TestRoute(unittest.TestCase):
             self._mock_success_authorizer
         )
 
-        response = router.route('GET', '/users',
-                                token=get_access_token(), body={}, ctx=RequestContext())
+        request = HttpRequest({}, jwt_token=get_access_token())
+
+        response = router.route('GET', '/users', request)
         self.assertEqual(response._body['return_value'], 3)
 
-        response = router.route('GET', '/users/1',
-                                token=get_access_token(), body={}, ctx=RequestContext())
+        response = router.route('GET', '/users/1', request)
         self.assertEqual(response._body['return_value'], 2)
 
     def test_router_two_handlers_two_methods(self):
@@ -126,9 +126,9 @@ class TestRoute(unittest.TestCase):
         router.add_route(['GET'], '/', partial(self._mock_handler, return_value=-1))
         router.add_route(['POST'], '/', partial(self._mock_handler, return_value=1))
 
-        response = router.route('POST', '/',
-                                token=get_access_token(), body={}, ctx=RequestContext())
+        request = HttpRequest({}, jwt_token=get_access_token())
+
+        response = router.route('POST', '/', request)
         self.assertEqual(response._body['return_value'], 1)
-        response = router.route('GET', '/',
-                                token=get_access_token(), body={}, ctx=RequestContext())
+        response = router.route('GET', '/', request)
         self.assertEqual(response._body['return_value'], -1)
