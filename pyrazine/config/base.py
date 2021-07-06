@@ -1,17 +1,21 @@
 from abc import ABC, abstractmethod
 from decimal import Decimal
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, Set
 
 
-class BaseConfigurationMixin(ABC):
+class BaseConfigurationReader(ABC):
 
-    _registry: List[Any]
-
-    def __init__(self):
-        self._registry = []
+    @property
+    @abstractmethod
+    def lazy_load(self) -> bool:
+        raise NotImplementedError('Property not implemented in abstract base class.')
 
     @abstractmethod
-    def initialize(self):
+    def read(self, key: str) -> str:
+        raise NotImplementedError('Method not implemented in abstract base class.')
+
+    @abstractmethod
+    def read_all(self) -> Dict[str, Any]:
         raise NotImplementedError('Method not implemented in abstract base class.')
 
 
@@ -42,5 +46,5 @@ class BaseConfigurationVault(ABC):
         raise NotImplementedError('Method not implemented in abstract base class.')
 
     @abstractmethod
-    def reader(self, reader):
+    def register_reader(self, reader: BaseConfigurationReader):
         raise NotImplementedError('Method not implemented in abstract base class.')
