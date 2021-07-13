@@ -42,10 +42,34 @@ class SSMConfigurationReader(BaseConfigurationReader):
             logger.exception(e)
             raise
 
-        return response['Parameter']['Value']
+        parameter = response['Parameter']
+
+        return str(parameter['Value']).split(',')\
+            if parameter['Type'] == 'StringList' else parameter['Value']
 
     def read_all(self) -> Dict[str, Any]:
         if self._app_prefix is None:
             raise RuntimeError('Application prefix must be set to read all parameters.')
 
-        raise NotImplementedError('TODO: Implement')
+        result: Dict[str, Any] = {}
+
+        try:
+            response = self._ssm_client.get_parameters_by_path(
+                Path=self._app_prefix,
+                Recursive=True,
+                WithDecryption=self._decrypt_parameters,
+            )
+
+            for parameter in response['Parameters']:
+                param_name = str(parameter['Name'])
+                if parameter['Type'] == 'StringList':
+                    value = str(parameter['Value'])
+                    result[param_name] = value.split(',')
+                else:
+                    result[param_name] = parameter['Value']
+
+        except ClientError as e:
+            logger.exception(e)
+            raise
+
+        return result

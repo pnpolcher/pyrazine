@@ -50,7 +50,8 @@ class CognitoAuthorizer(BaseAuthorizer):
     def _initialize(self):
         keys_url = 'https://cognito-idp.{}.amazonaws.com/{}/.well-known/jwks.json' \
             . format(self._region, self._user_pool_id)
-        with urllib.request.urlopen(keys_url) as request:
+        # B310:blacklist - only the https schema is being used here by design, so suppress.
+        with urllib.request.urlopen(keys_url) as request:  # nosec
             response = request.read()
         self._cognito_keys = json.loads(response.decode('utf-8'))['keys']
 

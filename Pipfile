@@ -16,6 +16,7 @@ nose2 = "*"
 pytest = "*"
 boto3 = "*"
 moto = "*"
+bandit = "*"
 
 [requires]
 python_version = "3.8"
