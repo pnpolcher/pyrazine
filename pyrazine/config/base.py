@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from decimal import Decimal
-from typing import Any, Dict, Set
+from typing import Any, Dict, Iterable, Set
 
 
 class BaseConfigurationReader(ABC):
@@ -12,6 +12,10 @@ class BaseConfigurationReader(ABC):
 
     @abstractmethod
     def read(self, key: str) -> str:
+        raise NotImplementedError('Method not implemented in abstract base class.')
+
+    @abstractmethod
+    def read_many(self, keys: Iterable[str]) -> Dict[str, Any]:
         raise NotImplementedError('Method not implemented in abstract base class.')
 
     @abstractmethod

@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Iterable, Optional
 
 import boto3
 from botocore.exceptions import ClientError
@@ -31,6 +31,19 @@ class SSMConfigurationReader(BaseConfigurationReader):
     def lazy_load(self) -> bool:
         return self._lazy_load
 
+    def _ssm_to_dict(self, response: Any) -> Dict[str, Any]:
+        result: Dict[str, Any] = {}
+
+        for parameter in response['Parameters']:
+            param_name = str(parameter['Name'])
+            if parameter['Type'] == 'StringList':
+                value = str(parameter['Value'])
+                result[param_name] = value.split(',')
+            else:
+                result[param_name] = parameter['Value']
+
+        return result
+
     def read(self, key: str) -> str:
 
         try:
@@ -47,11 +60,23 @@ class SSMConfigurationReader(BaseConfigurationReader):
         return str(parameter['Value']).split(',')\
             if parameter['Type'] == 'StringList' else parameter['Value']
 
+    def read_many(self, keys: Iterable[str]) -> Dict[str, Any]:
+
+        try:
+            response = self._ssm_client.get_parameters(
+                Names=list(keys),
+                WithDecryption=self._decrypt_parameters,
+            )
+
+            return self._ssm_to_dict(response)
+
+        except ClientError as e:
+            logger.exception(e)
+            raise
+
     def read_all(self) -> Dict[str, Any]:
         if self._app_prefix is None:
             raise RuntimeError('Application prefix must be set to read all parameters.')
-
-        result: Dict[str, Any] = {}
 
         try:
             response = self._ssm_client.get_parameters_by_path(
@@ -60,16 +85,8 @@ class SSMConfigurationReader(BaseConfigurationReader):
                 WithDecryption=self._decrypt_parameters,
             )
 
-            for parameter in response['Parameters']:
-                param_name = str(parameter['Name'])
-                if parameter['Type'] == 'StringList':
-                    value = str(parameter['Value'])
-                    result[param_name] = value.split(',')
-                else:
-                    result[param_name] = parameter['Value']
+            return self._ssm_to_dict(response)
 
         except ClientError as e:
             logger.exception(e)
             raise
-
-        return result
