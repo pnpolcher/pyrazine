@@ -1,7 +1,7 @@
 from decimal import Decimal
 import json
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Type
 
 from pyrazine.serdes import BaseDeserializer, BaseSerializer
 
@@ -46,7 +46,7 @@ class JsonDeserializer(BaseDeserializer):
 
 class JsonSerializer(BaseSerializer):
 
-    def __init__(self, encoder_class: Optional[json.JSONEncoder] = None, json_ld: bool = False):
+    def __init__(self, encoder_class: Optional[Type[json.JSONEncoder]] = None, json_ld: bool = False):
         self._json_ld = json_ld
         self._encoder_class = encoder_class or DefaultJSONEncoder
 
@@ -62,6 +62,9 @@ class JsonSerializer(BaseSerializer):
     def create(cls, parameters: Dict[str, Any]):
 
         encoder_class = parameters.get('encoder_class')
+        if encoder_class is not None and not issubclass(encoder_class, json.JSONEncoder):
+            raise ValueError('Encoder class must be of type json.JSONEncoder.')
+
         variant = parameters.get('variant', None)
         json_ld = variant is not None and variant == 'ld'
         return cls(json_ld=json_ld, encoder_class=encoder_class)
