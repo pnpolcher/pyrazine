@@ -1,3 +1,4 @@
+from typing import Any, Dict
 import unittest
 
 import boto3
@@ -35,6 +36,22 @@ class SSMTest(unittest.TestCase):
                 Type=param['Type'],
             )
 
+    def _check_parameters(self, parameters: Dict[str, Any], decrypt: bool):
+        for source_param in self.TEST_PARAMETERS:
+            if source_param['Name'] not in parameters:
+                self.fail('Missing parameter: %s' % source_param['Name'])
+
+            value = parameters[source_param['Name']]
+            if source_param['Type'] == 'SecureString':
+                if decrypt:
+                    self.assertEqual(value, source_param['Value'])
+                else:
+                    self.assertEqual(value, 'kms:alias/aws/ssm:%s' % source_param['Value'])
+            elif source_param['Type'] == 'StringList':
+                self.assertEqual(value, source_param['Value'].split(','))
+            else:
+                self.assertEqual(value, source_param['Value'])
+
     @mock_ssm
     def test_read(self):
         ssm = boto3.client('ssm')
@@ -71,17 +88,7 @@ class SSMTest(unittest.TestCase):
         )
 
         params = reader.read_many([x['Name'] for x in self.TEST_PARAMETERS])
-
-        for source_param in self.TEST_PARAMETERS:
-            if source_param['Name'] not in params:
-                self.fail('Missing parameter: %s' % source_param['Name'])
-            value = params[source_param['Name']]
-            if source_param['Type'] == 'SecureString':
-                self.assertEqual(value, 'kms:alias/aws/ssm:%s' % source_param['Value'])
-            elif source_param['Type'] == 'StringList':
-                self.assertEqual(value, source_param['Value'].split(','))
-            else:
-                self.assertEqual(value, source_param['Value'])
+        self._check_parameters(params, False)
 
         reader = SSMConfigurationReader(
             decrypt_parameters=True,
@@ -89,15 +96,7 @@ class SSMTest(unittest.TestCase):
         )
 
         params = reader.read_many([x['Name'] for x in self.TEST_PARAMETERS])
-        for source_param in self.TEST_PARAMETERS:
-            if source_param['Name'] not in params:
-                self.fail('Missing parameter: %s' % source_param['Name'])
-            value = params[source_param['Name']]
-
-            if source_param['Type'] == 'StringList':
-                self.assertEqual(value, source_param['Value'].split(','))
-            else:
-                self.assertEqual(value, source_param['Value'])
+        self._check_parameters(params, True)
 
     @mock_ssm
     def test_read_all(self):
@@ -109,28 +108,11 @@ class SSMTest(unittest.TestCase):
             app_prefix='/',
         )
         params = reader.read_all()
-        for source_param in self.TEST_PARAMETERS:
-            if source_param['Name'] not in params:
-                self.fail('Missing parameter: %s' % source_param['Name'])
-            value = params[source_param['Name']]
-            if source_param['Type'] == 'SecureString':
-                self.assertEqual(value, 'kms:alias/aws/ssm:%s' % source_param['Value'])
-            elif source_param['Type'] == 'StringList':
-                self.assertEqual(value, source_param['Value'].split(','))
-            else:
-                self.assertEqual(value, source_param['Value'])
+        self._check_parameters(params, False)
 
         reader = SSMConfigurationReader(
             decrypt_parameters=True,
             app_prefix='/',
         )
         params = reader.read_all()
-        for source_param in self.TEST_PARAMETERS:
-            if source_param['Name'] not in params:
-                self.fail('Missing parameter: %s' % source_param['Name'])
-            value = params[source_param['Name']]
-
-            if source_param['Type'] == 'StringList':
-                self.assertEqual(value, source_param['Value'].split(','))
-            else:
-                self.assertEqual(value, source_param['Value'])
+        self._check_parameters(params, True)

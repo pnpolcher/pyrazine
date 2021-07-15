@@ -1,20 +1,7 @@
-import decimal
 import json
 from typing import Any, Dict
 
-
-class HttpResponseSerializer(json.JSONEncoder):
-    """
-    Class that implements serialization for types other than those supported
-    by JSONEncoder, and that may come up in JSON in Lambda functions.
-    """
-    def default(self, o):
-        if isinstance(o, decimal.Decimal):
-            return str(o)
-        elif isinstance(o, set):
-            return list(o)
-        else:
-            return super().default(o)
+from pyrazine.serdes import BaseSerializer
 
 
 class HttpResponse(object):
@@ -80,24 +67,28 @@ class HttpResponse(object):
         response['headers']['access-control-allow-methods'] = \
             'GET,POST,PUT,DELETE,OPTIONS'
 
-    def get_response_object(self) -> Dict[str, object]:
+    def get_response_object(self, serializer: BaseSerializer) -> Dict[str, object]:
 
         response = {
             'statusCode': self._status_code,
             'headers': {}
         }
 
-        if self._body is not None:
-            response['body'] = json.dumps(
-                self._body,
-                cls=HttpResponseSerializer)
-            response['headers']['content-type'] = 'application/json'
+        if self._body is not None and self._status_code < 400:
+            response['body'] = serializer.serialize(self._body)
+            response['headers']['content-type'] = serializer.mime_type
+            response['isBase64Encoded'] = serializer.is_base64_encoded
         elif self._status_code >= 400:
-            response['body'] = json.dumps({
-                'error': {
-                    'message': self._message or 'Unknown error'
-                }
-            })
+            if self._body is None or len(self._body) == 0:
+                response['body'] = json.dumps({
+                    'error': {
+                        'message': self._message or 'Unknown error'
+                    }
+                })
+            else:
+                response['body'] = json.dumps({
+                    'error': self._body
+                })
 
         if self._enable_cors:
             self.add_cors_headers(response)

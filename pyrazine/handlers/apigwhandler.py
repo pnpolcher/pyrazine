@@ -11,8 +11,9 @@ from pyrazine.exceptions import BadRequestError
 from pyrazine.requests.httprequest import HttpRequest
 from pyrazine.response import HttpResponse
 from pyrazine.routing import Router, HandlerCallable
-from pyrazine.serdes import BaseDeserializer
+from pyrazine.serdes import BaseDeserializer, BaseSerializer
 from pyrazine.serdes.auto import HttpRequestAutoDeserializer
+from pyrazine.serdes.json import JsonSerializer
 from pyrazine.tracer import Tracer
 from pyrazine.typing import LambdaContext
 
@@ -36,12 +37,14 @@ class ApiGatewayEventHandler(object):
 
     _error_handler: BaseErrorHandler
     _router: Router
-    _serdes: BaseDeserializer
+    _deserializer: BaseDeserializer
 
     def __init__(self,
                  service_name: str = 'unknown_service',
-                 serdes: BaseDeserializer.__class__ = HttpRequestAutoDeserializer,
-                 serdes_parameters: Dict[str, Any] = None,
+                 deserializer: BaseDeserializer.__class__ = HttpRequestAutoDeserializer,
+                 deserializer_params: Dict[str, Any] = None,
+                 serializer: BaseSerializer.__class__ = JsonSerializer,
+                 serializer_params: Dict[str, Any] = None,
                  authorizer: Any = None,
                  error_handler: Optional[BaseErrorHandler] = None,
                  recorder: aws_xray_sdk.core.xray_recorder = None,
@@ -63,8 +66,8 @@ class ApiGatewayEventHandler(object):
         self._error_handler = error_handler or DefaultErrorHandler()
         self._router = Router()
 
-        serdes_params = serdes_parameters or {}
-        self._serdes = serdes.create(serdes_params)
+        self._deserializer = deserializer.create(deserializer_params or {})
+        self._serializer = serializer.create(serializer_params or {})
 
         self._authorizer = authorizer
         self._service_name = service_name
@@ -82,7 +85,7 @@ class ApiGatewayEventHandler(object):
     def _get_body_object(self, http_event: HttpEvent) -> Any:
 
         try:
-            payload = self._serdes.deserialize(http_event.body, {
+            payload = self._deserializer.deserialize(http_event.body, {
                 'event': http_event
             })
         except Exception as e:
@@ -92,6 +95,13 @@ class ApiGatewayEventHandler(object):
         return payload
 
     def _handle_event(self, event: HttpEvent, path: str) -> HttpResponse:
+        """
+        Handles the API Gateway event passed to the Lambda function.
+
+        :param event: An object of type HttpEvent that contains all event data.
+        :param path: The path where the request was sent.
+        :return: An object of type HttpResponse with the result of processing the event.
+        """
 
         method = event.http_ctx_method.upper()
         logger.debug(f'Handling event for route at {method} {path}.')
@@ -267,4 +277,4 @@ class ApiGatewayEventHandler(object):
         else:
             response = self._handle_event(http_event, path)
 
-        return response.get_response_object()
+        return response.get_response_object(self._serializer)

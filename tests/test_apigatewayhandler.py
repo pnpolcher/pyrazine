@@ -28,7 +28,7 @@ class MockAuthorizer(BaseAuthorizer):
             return {}
 
 
-class TestLambdaHandler(unittest.TestCase):
+class TestApiGatewayHandler(unittest.TestCase):
 
     TEST_HTTP_EVENT = {
         "version": "2.0",
@@ -143,14 +143,15 @@ class TestLambdaHandler(unittest.TestCase):
 
         @handler.route(path='/', methods=('GET',))
         def test_handler(request: HttpRequest):
-            raise BadRequestError('Invalid parameter.')
+            raise BadRequestError('Invalid parameter')
 
         response = handler.handle_request(
             self.TEST_HTTP_EVENT, self._get_lambda_context('TestFunction'))
 
         self.assertEqual(response['statusCode'], 400)
         response_body = json.loads(response['body'])
-        self.assertEqual(response_body['error']['message'], 'Invalid parameter.')
+        self.assertEqual(response_body['error']['message'], 'Bad request')
+        self.assertEqual(response_body['error']['data']['message'], 'Invalid parameter')
 
     def test_route_authorization_when_right_role(self):
 
