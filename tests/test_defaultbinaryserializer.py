@@ -57,6 +57,12 @@ class TestDefaultBinarySerializer(unittest.TestCase):
         result = serializer.serialize(1.0, {})
         self.assertEqual(result, base64.b64encode(struct.pack('f', 1.0)))
 
+    def test_serializer_int(self):
+        serializer = DefaultBinarySerializer()
+
+        result = serializer.serialize(1, {})
+        self.assertEqual(result, base64.b64encode())
+
     def test_serialize_list(self):
         serializer = DefaultBinarySerializer()
 
